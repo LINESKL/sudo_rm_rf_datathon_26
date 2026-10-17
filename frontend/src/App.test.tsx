@@ -436,3 +436,30 @@ describe('F5 accessible upload flow', () => {
     expect(view.start).not.toHaveBeenCalled()
   })
 })
+
+describe('Polish: queue and result note', () => {
+  it('shows a queued job as waiting in line, with every stage still pending', () => {
+    renderState({
+      details: {
+        job_id: 'job-1',
+        status: 'processing',
+        progress: { stage: 'queued', value: 0 },
+        stages: [],
+      },
+    })
+    expect(screen.getByText('В очереди')).toBeInTheDocument()
+    expect(screen.getByText(/Задача в очереди/)).toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.getByText('Подготовка видео')).toBeInTheDocument()
+    expect(screen.getAllByText('Ожидание')).toHaveLength(4)
+  })
+
+  it('shows the human-review note once on the result screen', async () => {
+    renderState({ done: true, busy: false, details: cleanResult('job-1') })
+    expect(
+      await screen.findAllByText(
+        'Результат — подсказка для проверки человеком. Решение принимает специалист.',
+      ),
+    ).toHaveLength(1)
+  })
+})

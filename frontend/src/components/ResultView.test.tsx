@@ -129,14 +129,14 @@ describe('ResultView', () => {
     ).toHaveAttribute('href', rule.url)
     expect(screen.queryByText('Фрагмент документа')).not.toBeInTheDocument()
     expect(screen.queryByText('п. 20')).not.toBeInTheDocument()
-    expect(screen.queryByText(/Источник не указан/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Норматив не определён/)).not.toBeInTheDocument()
   })
 
   it.each([undefined, null])('marks a missing normative source explicitly: %s', (rule) => {
     render(
       <ResultView result={result([event(0, { rule })])} onReset={vi.fn()} serviceMode="pipeline" />,
     )
-    expect(screen.getByText('Источник не указан, требуется проверка.')).toBeVisible()
+    expect(screen.getByText('Норматив не определён, требуется проверка.')).toBeVisible()
     expect(screen.queryByRole('link', { name: /^Открыть источник/ })).not.toBeInTheDocument()
     expect(screen.getByText('Что видно')).toBeVisible()
     expect(screen.getByText('Почему это может быть нарушением')).toBeVisible()
@@ -417,9 +417,7 @@ describe('ResultView review fixes', () => {
       const banner = container.querySelector('.result-banner')
       expect(banner).toHaveClass('needs-review')
       expect(banner).not.toHaveClass('has-findings')
-      expect(
-        screen.getByRole('heading', { name: 'Результат требует проверки' }),
-      ).toBeVisible()
+      expect(screen.getByRole('heading', { name: 'Результат требует проверки' })).toBeVisible()
       expect(
         screen.queryByRole('heading', { name: 'Нарушение не обнаружено' }),
       ).not.toBeInTheDocument()
@@ -469,4 +467,87 @@ describe('ResultView review fixes', () => {
       ).toBeVisible()
     },
   )
+})
+
+describe('ResultView polish', () => {
+  function mountWithPlayer(violations: Violation[], overrides: Partial<DoneDetails> = {}) {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    const view = render(
+      <ResultView
+        result={result(violations, overrides)}
+        onReset={vi.fn()}
+        serviceMode="pipeline"
+      />,
+    )
+    const video = screen.getByLabelText<HTMLVideoElement>('Плеер загруженного видео')
+    Object.defineProperty(video, 'readyState', { configurable: true, value: 1 })
+    Object.defineProperty(video, 'duration', { configurable: true, value: 20 })
+    return { ...view, video }
+  }
+
+  it('puts the verdict first and keeps the human-review note next to it', () => {
+    render(
+      <ResultView
+        result={result([], { degraded: true })}
+        onReset={vi.fn()}
+        serviceMode="pipeline"
+      />,
+    )
+    const banner = screen.getByRole('heading', { level: 3, name: 'Результат требует проверки' })
+    const caveat = screen.getByText('Анализ выполнен не полностью')
+    expect(banner.compareDocumentPosition(caveat) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Результат — подсказка для проверки человеком. Решение принимает специалист.',
+      ),
+    ).toBeVisible()
+  })
+
+  it('shows the recording length among the result facts', () => {
+    render(
+      <ResultView
+        result={result([], { duration_sec: 20.9 })}
+        onReset={vi.fn()}
+        serviceMode="pipeline"
+      />,
+    )
+    expect(screen.getByText('Длительность записи').closest('span')).toHaveTextContent('00:20,9')
+  })
+
+  it('places each event marker on the video scale by its interval', () => {
+    mountWithPlayer([event(0, { timecode_sec: 5, timecode_end_sec: 10 })], { duration_sec: 20 })
+    const marker = screen.getByRole('button', { name: 'Событие 1: Событие 1, 00:05,0' })
+    expect(marker).toHaveStyle({ left: '25%', width: '25%' })
+  })
+
+  it('highlights the event card as soon as its timecode is clicked', async () => {
+    const user = userEvent.setup()
+    mountWithPlayer([
+      event(0, { timecode_end_sec: 9 }),
+      event(1, { timecode_sec: 15, timecode_end_sec: 16 }),
+    ])
+    await user.click(screen.getByRole('button', { name: 'Событие 2: Событие 2, 00:15,0' }))
+    expect(screen.getByRole('article', { name: 'Событие 2: Событие 2' })).toHaveClass(
+      'event-current',
+    )
+    expect(screen.getByRole('article', { name: 'Событие 1: Событие 1' })).not.toHaveClass(
+      'event-current',
+    )
+  })
+
+  it('opens the video a second before an evidence frame', async () => {
+    const user = userEvent.setup()
+    const { video } = mountWithPlayer([
+      event(0, {
+        evidence_frames: [
+          { ...sampleDetails.violations[0].evidence_frames[0], timestamp_sec: 12.5 },
+        ],
+      }),
+    ])
+    await user.click(screen.getByRole('button', { name: 'Показать кадр 1 события 1 в видео' }))
+    expect(video.currentTime).toBe(11.5)
+    expect(screen.getByRole('article', { name: 'Событие 1: Событие 1' })).toHaveClass(
+      'event-current',
+    )
+  })
 })
