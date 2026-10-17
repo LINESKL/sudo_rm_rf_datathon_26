@@ -1,0 +1,101 @@
+# Нормативы — из docs/research/01_normative_base.md (VERIFIED). Перед сдачей сверить каждый url на adilet вручную.
+_docs:
+  npa231: &npa231 "Постановление Правления Национального Банка РК от 29.11.2019 № 231 (Правила ведения кассовых операций)"
+  npa14: &npa14 "Постановление Правления Национального Банка РК от 24.02.2020 № 14"
+  ib53: &ib53 "Постановление Правления АРРФР от 03.04.2026 № 53 (требования к информационной безопасности)"
+
+workstation_unlocked:
+  title: Рабочая станция оставлена разблокированной
+  observed: "В {t} с кассир покинула рабочее место, на экране ноутбука остаётся открытое приложение без блокировки."
+  why: "Рабочая станция кассира без блокировки доступна посторонним в его отсутствие."
+  verify_question: "The cashier has left. Does the laptop screen show an open application or spreadsheet (NOT a lock screen, NOT a dark screen, NOT a closed lid)?"
+  confidence: 0.7
+  norm: {document: *ib53, point: "п. 71 пп. 9)", quote: "…информационная система автоматически завершает сеанс … либо блокирует рабочую станцию или ноутбук", url: "https://adilet.zan.kz/rus/docs/V2600038336", verified: true}
+
+workstation_left_open:
+  title: Рабочая станция оставлена открытой при уходе
+  observed: "В {t} с кассир покинула рабочее место, ноутбук остаётся открытым."
+  why: "Рабочее место кассира не должно оставаться доступным в его отсутствие."
+  verify_question: "The cashier has left. Is the laptop left open (lid open) rather than closed?"
+  confidence: 0.5
+  norm: {document: *ib53, point: "п. 71 пп. 9)", quote: "…информационная система автоматически завершает сеанс … либо блокирует рабочую станцию или ноутбук", url: "https://adilet.zan.kz/rus/docs/V2600038336", verified: true}
+
+cash_unattended:
+  title: Наличные или ценности оставлены без присмотра
+  observed: "В {t} с наличные или сумка инкассации остаются на столе без присмотра кассира."
+  why: "Принятые наличные деньги хранятся в устройствах, закрывающихся на ключ, а не на открытом рабочем месте."
+  verify_question: "Is there cash (banknotes) or a cash collection bag lying on the desk while the cashier is away from the desk or another person approaches it?"
+  confidence: 0.7
+  norm: {document: *npa231, point: "п. 20 ч. 2", quote: "Все ранее принятые наличные деньги хранятся в специальных устройствах … закрывающихся на ключ", url: "https://adilet.zan.kz/rus/docs/V1900019680", verified: true}
+
+safe_unsecured:
+  title: Сейф не заперт или ключ оставлен в замке
+  observed: "В {t} с сейф остаётся открытым или с ключом в замке без присмотра кассира."
+  why: "Хранилище наличных должно быть заперто, а ключи защищены от несанкционированного использования."
+  verify_question: "Is the safe door open, or is a key left inserted in the safe lock, while the cashier is not at the safe?"
+  confidence: 0.6
+  norm: {document: *npa231, point: "п. 20 ч. 2, п. 80", quote: "Порядок хранения … ключей … обеспечивающими исключение их несанкционированного использования", url: "https://adilet.zan.kz/rus/docs/V1900019680", verified: true}
+
+personal_items:
+  title: Личные вещи на рабочем месте кассира
+  observed: "С {t} с на рабочем столе кассира находятся личные вещи (сумка, верхняя одежда)."
+  why: "Личные вещи работников хранятся вне кассового узла."
+  verify_question: "Is there a personal handbag, backpack or outerwear (coat, jacket) placed on the cashier's desk?"
+  confidence: 0.75
+  norm: {document: *npa231, point: "п. 12 ч. 1", quote: "Хранение личных вещей, наличных денег и ценностей работников банка осуществляется вне кассового узла", url: "https://adilet.zan.kz/rus/docs/V1900019680", verified: true}
+
+eating_drinking:
+  title: Приём пищи или напитков на рабочем месте
+  observed: "В {t} с кассир ест или пьёт на рабочем месте."
+  why: "Посторонние предметы и приём пищи на рабочем месте кассира создают риск для наличных и документов; порядок определяется внутренними документами банка."
+  verify_question: "Is the cashier eating or drinking (cup or food raised to the mouth) at the desk?"
+  confidence: 0.7
+  norm: {document: *npa231, point: "п. 12 (отсылка к внутренним документам банка)", quote: "Хранение личных вещей … осуществляется вне кассового узла", url: "https://adilet.zan.kz/rus/docs/V1900019680", verified: false}
+
+phone_use:
+  title: Мобильный телефон на рабочем месте кассира
+  observed: "В {t} с кассир держит в руках мобильный телефон на рабочем месте."
+  why: "В кассовый узел допускаются только средства связи без функций фото- и видеофиксации."
+  verify_question: "Is the CASHIER (not a client) holding or using a smartphone?"
+  confidence: 0.7
+  norm: {document: *npa231, point: "п. 12 ч. 2", quote: "Допускается внос … средств связи, не имеющих функции фото и видео фиксации", url: "https://adilet.zan.kz/rus/docs/V1900019680", verified: true}
+
+outsider_cashier_zone:
+  title: Посторонний в зоне кассира
+  observed: "В {t} с посторонний человек находится на стороне кассира, в зоне рабочего места."
+  why: "Кассовый узел изолируется от посторонних; рабочее место кассира отделяется."
+  verify_question: "Is a person other than the cashier standing on the cashier's side of the desk (behind or next to the cashier), not on the client side?"
+  confidence: 0.6
+  norm: {document: *npa14, point: "п. 8", quote: "Кассовый узел подлежит изолированию … одним закрывающимся служебным входом", url: "https://adilet.zan.kz/rus/docs/V2000020075", verified: true}
+
+banknote_check_skipped:
+  title: Наличные не проверены на подлинность
+  observed: "В {t} с кассир принимает и пересчитывает наличные без проверки на оборудовании для определения подлинности."
+  why: "Пересчёт наличных выполняется на оборудовании с проверкой машиночитаемых защитных признаков."
+  verify_question: "During this cash handling, does the cashier put the banknotes through a counting/checking machine or a banknote detector?"
+  confidence: 0.5
+  norm: {document: *npa231, point: "п. 41, п. 9", quote: "…на оборудовании, имеющем функцию проверки не менее двух машиночитаемых защитных признаков", url: "https://adilet.zan.kz/rus/docs/V1900019680", verified: true}
+
+id_check_skipped:
+  title: Операция без проверки документа клиента
+  observed: "В {t} с кассир принимает наличные от клиента без проверки документа, удостоверяющего личность."
+  why: "Перед проведением операции личность клиента идентифицируется по документу."
+  verify_question: "Before accepting cash, does the cashier take and look at the client's ID card or document?"
+  confidence: 0.5
+  norm: null
+
+bag_acceptance_violation:
+  title: Нарушен порядок приёма сумки у инкассатора
+  observed: "В {t} с сумка инкассации принята, инкассатор уходит до завершения приёма, сумка вскрывается без него."
+  why: "При приёме сумки кассир проверяет её целостность и пломбирование, вскрытие при нарушении целостности — в присутствии инкассатора."
+  verify_question: "After handing over the green collection bag, does the courier leave the room before the cashier finishes checking/opening the bag?"
+  confidence: 0.5
+  norm: {document: *npa231, point: "пп. 24–25", quote: "проверяет целостность сумки; проверяет правильность пломбирования сумки", url: "https://adilet.zan.kz/rus/docs/V1900019680", verified: true}
+
+other_security_risk:
+  title: Иной возможный риск кассовой дисциплины
+  observed: "В {t} с: {note}"
+  why: "Наблюдаемое действие может противоречить порядку работы кассы; требуется проверка человеком."
+  verify_question: "{note} Is this clearly visible in these frames?"
+  confidence: 0.4
+  norm: null
