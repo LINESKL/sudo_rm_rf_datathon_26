@@ -29,6 +29,11 @@ STAGE_HOOKS.extend([verify, actions_hook, screen_hook, outsider_hook])
 # ponytail: open pass (ml/open_pass.py) is off — on 32 videos it produced only false positives.
 
 
+def too_many_failures(failures: int, calls: int) -> bool:
+    """A few failed VLM answers out of dozens do not make the analysis incomplete."""
+    return failures > max(2, 0.1 * calls)
+
+
 def sensor_stop(started: float, deadline_s: float) -> float:
     """The frame sensor gets 37.5 % of the budget (90 of 240 s): idle it needs 20–40 s,
     under load the window checks after it need the rest."""
@@ -61,6 +66,7 @@ def analyze(video_path, deadline_s: float = 240.0, on_progress=None, client=None
     progress = on_progress or (lambda stage, value: None)
     client = client or VLMClient()
     failures_before = getattr(client, "failures", 0)
+    calls_before = getattr(client, "calls", 0)
 
     def left() -> float:
         return deadline_s - (time.monotonic() - started)
@@ -90,7 +96,8 @@ def analyze(video_path, deadline_s: float = 240.0, on_progress=None, client=None
 
     cands = [c for c in cands if c.confidence >= MIN_CONFIDENCE]
     violations = [to_violation(c, video_path, duration) for c in sorted(cands, key=lambda c: c.t)]
-    degraded |= getattr(client, "failures", 0) > failures_before or left() <= 0
+    failed = getattr(client, "failures", 0) - failures_before
+    degraded |= too_many_failures(failed, getattr(client, "calls", 0) - calls_before) or left() <= 0
     progress("done", 1.0)
     return AnalysisResult(duration_sec=duration, violations=violations, timeline=scene.timeline_json(),
                           rules_checked=len(RULES), processing_sec=time.monotonic() - started,

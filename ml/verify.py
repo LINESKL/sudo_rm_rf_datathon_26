@@ -9,7 +9,7 @@ from ml.vlm import map_parallel
 VERIFY_SCHEMA = {
     "type": "object",
     "properties": {"answer": {"type": "string", "enum": ["yes", "no", "unclear"]},
-                   "what_is_visible": {"type": "string"}},
+                   "what_is_visible": {"type": "string", "maxLength": 240}},  # uncapped text hit max_tokens
     "required": ["answer", "what_is_visible"],
 }
 

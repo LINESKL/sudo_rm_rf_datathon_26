@@ -19,6 +19,7 @@ class VLMClient:
         self.model = model or os.getenv("VLM_MODEL", "Qwen/Qwen3-VL-8B-Instruct")
         self.timeout = timeout
         self.failures = 0
+        self.calls = 0
         self._lock = Lock()
 
     def _cache_path(self, images, prompt, schema, max_tokens):
@@ -32,6 +33,8 @@ class VLMClient:
         return os.path.join(root, hashlib.sha256(key.encode()).hexdigest() + ".json")
 
     def ask_json(self, images, prompt: str, schema: dict, max_tokens: int = 400) -> dict | None:
+        with self._lock:
+            self.calls += 1
         cache = self._cache_path(images, prompt, schema, max_tokens)
         if cache and os.path.exists(cache):
             with open(cache, encoding="utf-8") as f:

@@ -24,7 +24,9 @@ FIELDS = {
     "client_hands_cash": "a client hands banknotes to the cashier",
     "cash_given_to_client": "the cashier hands banknotes to a client or a client takes cash from the desk",
 }
-SCHEMA = {"type": "object", "properties": {**{k: {"type": "boolean"} for k in FIELDS}, "what": {"type": "string"}},
+# "what" is capped: an uncapped description hit max_tokens and cut the JSON (6 of 12 windows on X-1).
+SCHEMA = {"type": "object", "properties": {**{k: {"type": "boolean"} for k in FIELDS},
+                                           "what": {"type": "string", "maxLength": 160}},
           "required": [*FIELDS, "what"]}
 PROMPT = ("Four frames in time order ({times}) from overhead CCTV of a bank cashier room. The cashier sits at the desk in front of the "
           "laptop; clients and couriers come to the opposite side of the desk. For each item answer true only if it happens in THESE frames:\n"
@@ -35,7 +37,7 @@ def ask_windows(client, video_path, duration: float, workers: int = 8) -> list[d
     def one(s):
         frames = sample_frames(video_path, [s + k for k in range(4)])
         times = ", ".join(f"t={t:.0f}s" for t, _ in frames)
-        ans = client.ask_json([im for _, im in frames], PROMPT.format(times=times), SCHEMA, max_tokens=300)
+        ans = client.ask_json([im for _, im in frames], PROMPT.format(times=times), SCHEMA, max_tokens=500)
         ans = ans if isinstance(ans, dict) else {}
         return {"t": round(s, 1), **{k: bool(ans.get(k)) for k in FIELDS}}
     return map_parallel(one, window_starts(duration), workers)
