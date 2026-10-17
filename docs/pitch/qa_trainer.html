@@ -1,0 +1,197 @@
+<title>Вопросы жюри Observer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Тренажёр вопросов жюри: формула ответа, фильтры, карточка вопроса с таймером 30 с, режим «все вопросы списком». */
+:root {
+  --bg: #0B0A12; --surface: #15131F; --raised: #1C1929; --line: #2C2840;
+  --fg: #F2F0FA; --muted: #A9A4BF; --violet: #A99BFF; --pink: #FF7AB6;
+  --good: #4FD1A5; --warn: #FFC46B; --chip: rgba(169,155,255,.12);
+  --display: 'Manrope', system-ui, sans-serif; --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #F6F4FB; --surface: #FFFFFF; --raised: #F1EEF8; --line: #E2DDEE;
+  --fg: #221F33; --muted: #625C78; --violet: #6643A4; --pink: #B71F67;
+  --good: #1B6B53; --warn: #875211; --chip: rgba(102,67,164,.10); color-scheme: light } }
+:root[data-theme="light"] {
+  --bg: #F6F4FB; --surface: #FFFFFF; --raised: #F1EEF8; --line: #E2DDEE;
+  --fg: #221F33; --muted: #625C78; --violet: #6643A4; --pink: #B71F67;
+  --good: #1B6B53; --warn: #875211; --chip: rgba(102,67,164,.10); color-scheme: light }
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+body { background: var(--bg); color: var(--fg); font: 400 16px/1.55 var(--display); padding-inline: 16px; padding-block: 28px 64px }
+.wrap { max-width: 860px; margin: 0 auto; display: grid; gap: 22px }
+header { display: grid; gap: 6px }
+.kicker { font: 600 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--violet) }
+h1 { margin: 0; font: 800 clamp(28px, 5vw, 40px)/1.08 var(--display); letter-spacing: -.02em; text-wrap: balance }
+.lede { margin: 0; color: var(--muted); max-width: 62ch }
+.formula { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: grid; gap: 2px; min-width: 0 }
+.step b { font: 600 12px var(--mono); color: var(--pink); letter-spacing: .08em }
+.step span { font-size: 14px; color: var(--muted) }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.chip { border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 999px; padding: 7px 14px; font: 600 14px var(--display); cursor: pointer }
+.chip[aria-pressed="true"] { background: var(--chip); border-color: var(--violet); color: var(--violet) }
+.chip:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px }
+.spacer { flex: 1 }
+.progress { font: 500 13px var(--mono); color: var(--muted) }
+.bar { height: 4px; background: var(--line); border-radius: 4px; overflow: hidden }
+.bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--violet), var(--pink)); width: 0; transition: width .3s }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 26px; display: grid; gap: 18px }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font: 500 13px var(--mono); color: var(--muted) }
+.pill { border-radius: 999px; padding: 3px 10px; background: var(--chip); color: var(--violet); font: 600 12px var(--mono) }
+.pill.hard { color: var(--pink); background: rgba(255,122,182,.12) }
+.q { margin: 0; font: 700 clamp(20px, 3.2vw, 26px)/1.35 var(--display); text-wrap: pretty }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
+.timer { display: flex; align-items: center; gap: 12px }
+.dial { width: 64px; height: 64px; position: relative; flex: none }
+.dial svg { width: 100%; height: 100%; transform: rotate(-90deg) }
+.dial circle { fill: none; stroke-width: 6 }
+.dial .track { stroke: var(--line) }
+.dial .arc { stroke: var(--violet); stroke-linecap: round; transition: stroke .2s }
+.dial.late .arc { stroke: var(--warn) }
+.dial.over .arc { stroke: var(--pink) }
+.dial b { position: absolute; inset: 0; display: grid; place-items: center; font: 600 18px var(--mono); font-variant-numeric: tabular-nums }
+.btn { border: 0; border-radius: 12px; padding: 11px 18px; font: 700 15px var(--display); cursor: pointer; background: var(--raised); color: var(--fg) }
+.btn.primary { background: linear-gradient(115deg, #B71F67, #7A4AB4); color: #fff }
+.btn.good { background: rgba(79,209,165,.14); color: var(--good) }
+.btn.again { background: rgba(255,196,107,.14); color: var(--warn) }
+.answer { display: grid; gap: 12px; border-top: 1px solid var(--line); padding-top: 18px }
+.answer h3 { margin: 0; font: 600 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted) }
+.answer p { margin: 0; max-width: 68ch }
+.avoid { background: rgba(255,122,182,.08); border-left: 3px solid var(--pink); border-radius: 0 12px 12px 0; padding: 12px 14px; font-size: 14.5px; color: var(--fg) }
+.keys { font: 500 12px var(--mono); color: var(--muted) }
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 18px }
+details + details { margin-top: 10px }
+summary { cursor: pointer; font-weight: 700; display: flex; gap: 10px; align-items: baseline }
+summary .pill { flex: none }
+details .answer { margin-top: 12px }
+.list { display: grid }
+@media (max-width: 560px) { .formula { grid-template-columns: 1fr } .card { padding: 18px } }
+@media (prefers-reduced-motion: reduce) { .bar i, .dial .arc { transition: none } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="kicker">Вопросы жюри · тренировка</div>
+    <h1>Вопросы жюри Observer</h1>
+    <p class="lede">Вопросы, которые реально могут задать. Ответы сверены с кодом и данными проекта. Отвечайте вслух за 30 секунд, потом сверяйтесь с эталоном.</p>
+  </header>
+  <section class="formula" aria-label="Как строить ответ">
+    <div class="step"><b>1 · ПРЯМО</b><span>Первой фразой: да, нет или почему</span></div>
+    <div class="step"><b>2 · ФАКТ</b><span>Одна-две цифры из проверки или данных</span></div>
+    <div class="step"><b>3 · ДАЛЬШЕ</b><span>Слабость признать и сказать, что делаем</span></div>
+  </section>
+  <div class="controls" role="group" aria-label="Фильтры">
+    <button class="chip" data-cat="all" aria-pressed="true">Все</button>
+    <button class="chip" data-cat="method" aria-pressed="false">Метод и проверка</button>
+    <button class="chip" data-cat="ai" aria-pressed="false">AI и новизна</button>
+    <button class="chip" data-cat="value" aria-pressed="false">Ценность</button>
+    <button class="chip" data-cat="scale" aria-pressed="false">Масштаб и внедрение</button>
+    <span class="spacer"></span>
+    <button class="chip" id="hardOnly" aria-pressed="false">Только трудные</button>
+    <button class="chip" id="mode" aria-pressed="false">Все вопросы списком</button>
+  </div>
+  <div><div class="progress" id="progressText"></div><div class="bar"><i id="progressBar"></i></div></div>
+  <section class="card" id="trainer" aria-live="polite">
+    <div class="meta"><span id="qIndex"></span><span class="pill" id="qCat"></span><span class="pill" id="qDiff"></span></div>
+    <p class="q" id="qText"></p>
+    <div class="row">
+      <div class="timer">
+        <div class="dial" id="dial"><svg viewBox="0 0 64 64"><circle class="track" cx="32" cy="32" r="28"/><circle class="arc" id="arc" cx="32" cy="32" r="28"/></svg><b id="secs">30</b></div>
+        <button class="btn" id="timerBtn">Старт</button>
+      </div>
+      <span class="spacer"></span>
+      <button class="btn primary" id="revealBtn">Показать ответ</button>
+    </div>
+    <div class="answer" id="answer" hidden>
+      <h3>Эталонный ответ</h3><p id="aText"></p>
+      <h3>Чего не говорить</h3><p class="avoid" id="aAvoid"></p>
+      <div class="row">
+        <button class="btn good" id="gotIt">Справился</button>
+        <button class="btn again" id="again">Повторить позже</button>
+        <span class="spacer"></span>
+        <button class="btn" id="nextBtn">Следующий →</button>
+      </div>
+    </div>
+    <div class="keys">Пробел — таймер · Enter — ответ · → — следующий</div>
+  </section>
+  <section class="list" id="list" hidden></section>
+</div>
+
+<script type="application/json" id="bank">[{"q": "Где здесь AI? Это же просто правила.", "answer": "AI — это открытая визуальная модель Qwen3-VL. Она описывает каждый отобранный кадр, сама находит ноутбук на кадре, рассматривает экран и стол крупно и отвечает на проверочные вопросы. Правила только собирают её ответы во времени: например, кассир отошёл дольше трёх секунд, и на двух проверочных кадрах на экране открыт документ. Без модели правилам нечего читать.", "avoid": "Не говорить «мы обучили свою нейросеть» — мы не обучали, мы используем открытую.", "difficulty": "medium", "cat": "ai"}, {"q": "Почему не GPT или Gemini? Они точнее.", "answer": "По условиям кейса облачные модели запрещены: видео и кадры не должны покидать банк. Мы взяли открытую модель с лицензией Apache-2.0, которая работает на одной видеокарте внутри контура. Её можно поставить в банке без внешней сети.", "avoid": "Не утверждать, что наша модель точнее GPT — не сравнивали.", "difficulty": "easy", "cat": "ai"}, {"q": "Вы обучали модель?", "answer": "Нет. Сорок видео мало для обучения, мы бы переобучились. Мы настраивали вопросы к модели, правила и пороги: подбирали на рабочем наборе из двенадцати видео, итог сверяли на всех сорока. Дообучение — шаг пилота, когда будут реальные записи банка.", "avoid": "Не говорить «fine-tune» или «обучили».", "difficulty": "medium", "cat": "ai"}, {"q": "Семьдесят два процента — это мало. Почему вам верить?", "answer": "Это честная цифра на всех сорока открытых видео, начинали с сорока семи. Находим шестнадцать нарушений из двадцати одного, вдвое больше первой версии. Тревога бывает на трети чистых записей — это цена полноты, которую кейс ставит выше. Решение всё равно за проверяющим, а у него есть кадр и норма.", "avoid": "Не говорить «на тесте будет так же».", "difficulty": "hard", "cat": "method"}, {"q": "Вы подгоняли под эти 40 видео?", "answer": "Да, отдельной тестовой выборки нет: видео мало, и вопросы подбирали на них же. Поэтому прямо говорим, что на новых записях цифры будут ниже. Оставляли только изменения с понятной причиной, которые улучшали итог на всех сорока видео сразу.", "avoid": "Не отрицать подгонку.", "difficulty": "hard", "cat": "method"}, {"q": "Что будет на видео с другого ракурса?", "answer": "Модель сама находит ноутбук на кадре, координаты зон мы не задаём, и в датасете пять–шесть ракурсов. Но вопросы предполагают вид сверху и раскладку «кассир у ноутбука, клиент напротив». Совсем новый угол мы не проверяли, а финальное видео будет снято под другим углом — это первый риск, и первое, что проверим в пилоте.", "avoid": "Не говорить «от ракурса не зависит».", "difficulty": "hard", "cat": "method"}, {"q": "Почему вы пропускаете пять нарушений из двадцати одного?", "answer": "Часть нарушений на такой записи не видна: ключ в замке сейфа при разрешении 464 на 848. Телефон модель путает с купюрами, поэтому мы его отключили. И часть нарушений в датасете — тонкие процедуры, которые мы пока ловим не всегда: например, пересчёт не на счётной машине. Это первое, что улучшим на реальных записях банка.", "avoid": "Не обещать «скоро будет 100 %».", "difficulty": "hard", "cat": "method"}, {"q": "По FAQ пропуск недопустим. Как вы это учли?", "answer": "Сначала мы настроили систему на ноль ложных тревог и находили меньше половины нарушений. Потом перечитали условия: пропуск недопустим. Добавили проверки действий — открытая дверь, пересчёт руками без машины — и стали находить три четверти нарушений ценой тревоги на трети чистых записей. Каждая тревога приходит с кадром, проверяющий отклоняет её за секунды.", "avoid": "Не говорить «ложных тревог нет».", "difficulty": "hard", "cat": "value"}, {"q": "Какие нарушения вы находите?", "answer": "Восемь типов: кассир ушёл, а экран открыт; деньги или сумка без присмотра; сейф открыт без кассира; личные вещи на столе; еда и напитки; посторонний в зоне кассира; дверь кассы оставлена открытой; пересчёт руками без счётной машины. У каждого — норма с adilet.", "avoid": "Не перечислять телефон и проверку документа — они отключены.", "difficulty": "easy", "cat": "value"}, {"q": "Откуда нормы? Не выдумали?", "answer": "Три постановления с adilet.zan.kz: Нацбанка № 231 о кассовых операциях, Нацбанка № 14 об охране и устройстве помещений банков и агентства по регулированию № 53 об информационной безопасности. В каталоге для каждого типа — документ, пункт, цитата и ссылка; без подтверждённой нормы сервис её не показывает. Для экрана это ближайшая норма — об автоблокировке рабочей станции.", "avoid": "Не говорить «внутренний регламент банка» — его у нас нет.", "difficulty": "medium", "cat": "value"}, {"q": "Есть ли прямой запрет есть на рабочем месте?", "answer": "Прямого запрета еды в актах РК мы не нашли. Ссылаемся на пункт 12 постановления № 231: личные вещи хранятся вне кассового узла, и в перечне того, что можно вносить, еды нет. В описании мы не пишем, что еда запрещена напрямую.", "avoid": "Не утверждать, что есть прямой запрет.", "difficulty": "hard", "cat": "value"}, {"q": "Как вы определяете, кто кассир?", "answer": "Кассир — человек, который сидит перед открытым ноутбуком. Так мы задали это модели. Клиенты сидят по другую сторону стола. Лица мы не распознаём и людей не идентифицируем.", "avoid": "Не говорить о распознавании лиц или трекинге личности.", "difficulty": "medium", "cat": "method"}, {"q": "Как устроен пайплайн технически?", "answer": "Мы выбираем до 160 моментов, чаще там, где есть движение, FFmpeg их извлекает. Модель на каждом кадре возвращает JSON по строгой схеме, мы сглаживаем это во временные интервалы и применяем правила. На уходах кассира модель находит ноутбук, и мы смотрим крупно на экран и стол. Для посторонних — окна из четырёх кадров. В конце кадры-доказательства и норма.", "avoid": "Не уходить в детали дольше 30 секунд.", "difficulty": "medium", "cat": "method"}, {"q": "Почему крупный план помогает, если разрешение то же?", "answer": "Модель режет картинку на фрагменты фиксированного размера. На полном кадре экран ноутбука занимает пару фрагментов, и обои блокировки похожи на документ. Увеличенный в три раза фрагмент даёт экрану примерно в девять раз больше фрагментов. На сорока видео документ на экране нашёлся только в двух нарушениях и ни разу в норме.", "avoid": "Не говорить, что крупный план повышает разрешение видео.", "difficulty": "hard", "cat": "ai"}, {"q": "Сколько времени занимает проверка видео?", "answer": "Короткое видео — около полуминуты, в среднем по датасету 35 секунд при четырёх параллельных видео, максимум 116. Шесть длинных видео одновременно тоже укладываются в пятиминутный лимит, и находки сохраняются.", "avoid": "Не говорить «в N раз быстрее человека» — не мерили.", "difficulty": "easy", "cat": "scale"}, {"q": "Что будет при нагрузке больше шести видео?", "answer": "Сервис соблюдает дедлайн: при нехватке времени модель смотрит меньше кадров, а дополнительные проверки могут пропускаться, но ответ приходит с пометкой «требует проверки». Модель — отдельный сервер, её можно масштабировать. Очередь задач сейчас на одном узле, для сотен касс её нужно дорабатывать.", "avoid": "Не обещать конкретную пропускную способность, которую не мерили.", "difficulty": "hard", "cat": "scale"}, {"q": "На каком железе это работает? Сколько стоит?", "answer": "Одна видеокарта с 24–48 гигабайтами: стенд работает на NVIDIA L40, раньше — на RTX 4090. Модель квантована, поэтому помещается. Для банка это один сервер с GPU в своём контуре, без облачных подписок.", "avoid": "Не называть стоимость владения — не считали.", "difficulty": "medium", "cat": "scale"}, {"q": "Работает ли без интернета?", "answer": "Да. Веса лежат на сервере, загрузка из сети отключена, и мы перезапускали модель на стенде в таком режиме — она стартует. Интерфейс без внешних CDN. Полный прогон в сети без интернета вообще, как в банке, — шаг перед установкой.", "avoid": "Не говорить «сертифицировано для контура банка».", "difficulty": "easy", "cat": "scale"}, {"q": "Что видит пользователь?", "answer": "Загружает видео, видит этапы обработки. Потом вердикт: нарушение не обнаружено или обнаружены признаки. Для каждого нарушения — тип, таймкод с переходом в плеер, один–три кадра, что видно, почему это может быть нарушением и норма со ссылкой.", "avoid": "", "difficulty": "easy", "cat": "value"}, {"q": "Что делает сервис, если модель не уверена?", "answer": "Неуверенный ответ проверочного вопроса снижает уверенность ниже порога, и такое нарушение не показывается. Если часть кадров проанализировать не удалось, результат помечается как требующий ручной проверки. Вердикт при этом выдаётся.", "avoid": "", "difficulty": "medium", "cat": "method"}, {"q": "Как проверяли качество?", "answer": "Своим скриптом оценки на всех сорока размеченных видео: точность вердикта, полнота, ложные тревоги на чистых, попадание таймкода в пять секунд. Ответы модели кэшируются, поэтому изменения правил можно проверить за минуты без видеокарты.", "avoid": "", "difficulty": "medium", "cat": "method"}, {"q": "Почему таймкод попадает только в треть случаев?", "answer": "Мы ставим таймкод в начало события, например в момент ухода кассира. Из найденных нарушений семь из девяти попадают в пять секунд. Но попадание считается от всех размеченных событий, а пропущенное нарушение по таймкоду не попасть, поэтому в целом выходит треть.", "avoid": "Не называть точную долю среди найденных, если не посчитали.", "difficulty": "hard", "cat": "method"}, {"q": "Почему вы отключили проверку документа клиента?", "answer": "По видео модель не различала, смотрит ли кассир документ. На чистых видео это давало три ложные тревоги. Норма при этом есть: пункт 19 постановления № 231. Включим, когда будет надёжный признак.", "avoid": "", "difficulty": "medium", "cat": "method"}, {"q": "Что если камера плохая или кадр тёмный?", "answer": "Есть проверка качества кадра: слишком тёмный, засвеченный, скачок экспозиции, замороженный поток. В таких местах сервис не делает вывод «кассир ушёл», чтобы не было ложной тревоги.", "avoid": "", "difficulty": "medium", "cat": "method"}, {"q": "Чем вы лучше простого детектора объектов, YOLO?", "answer": "Детектор видит человека и ноутбук, но не понимает, открыт на экране документ или экран блокировки, и не знает роль человека. Мы пробовали добавить детектор D-FINE с трекингом — на рабочем наборе стало хуже и медленнее, в итог он не вошёл. И у YOLO лицензия AGPL, а нам нужна разрешающая коммерческое использование.", "avoid": "Не называть точные цифры эксперимента с трекером.", "difficulty": "hard", "cat": "ai"}, {"q": "Как это внедрить в банке?", "answer": "Есть API по схеме кейса, веб-интерфейс со сценарием проверяющего, Dockerfile и скрипт, которым поднят текущий стенд. Пилот: одна касса, месяц записей. Проверяющий подтверждает или отклоняет находки прямо в интерфейсе, по его решениям настраиваем пороги.", "avoid": "Не обещать сроки интеграции с системами банка.", "difficulty": "easy", "cat": "scale"}, {"q": "Нужен ли доступ к системам банка?", "answer": "Нет. Сервис работает только с видеозаписью. Нарушения, для которых нужны проводки, журналы или сверка, мы сознательно не утверждаем.", "avoid": "", "difficulty": "easy", "cat": "scale"}, {"q": "Что с персональными данными?", "answer": "Облачных AI-сервисов нет, видео обрабатывается на нашем сервере; демо-стенд арендован, в банке это будет свой сервер. Лица не распознаём. Превью видео в интерфейсе доступно только с API-ключом или по короткой cookie на 15 минут, привязанной к конкретному видео.", "avoid": "Не говорить «видео видит только загрузивший».", "difficulty": "medium", "cat": "value"}, {"q": "Какую пользу это даёт банку в деньгах?", "answer": "Мы не считали экономику: у нас нет данных о том, сколько времени проверяющие тратят сейчас. Польза в том, что проверяющий получает момент и кадр вместо целой записи. Цифру даст пилот: время проверки с Observer и без.", "avoid": "Не придумывать проценты экономии.", "difficulty": "hard", "cat": "value"}, {"q": "Что вы сделаете в первую очередь, если выиграете?", "answer": "Три вещи. Проверить на записях банка с других камер и углов. Через крупный план добавить телефон и ключ в замке сейфа, как уже сделали для экрана. Настроить пороги по решениям реальных проверяющих.", "avoid": "", "difficulty": "easy", "cat": "scale"}, {"q": "Можно ли посмотреть вживую?", "answer": "Да, сервис запущен, открою во второй вкладке. Короткое видео обрабатывается примерно за полминуты, длинное — до двух минут.", "avoid": "Держать вкладку заранее открытой и ключ введённым.", "difficulty": "easy", "cat": "value"}, {"q": "Почему модель на 30 миллиардов параметров, а не меньше?", "answer": "Начинали с версии на 8 миллиардов. Тридцатимиллиардная модель — архитектура смеси экспертов, при ответе работают около трёх миллиардов параметров, поэтому она достаточно быстрая. После квантования помещается на одну видеокарту. Сравнение по точности между ними мы не публикуем: не мерили на одном пайплайне.", "avoid": "Не утверждать «30B точнее на N процентов».", "difficulty": "hard", "cat": "ai"}]</script>
+<script>
+const BANK = JSON.parse(document.getElementById('bank').textContent);
+const CAT = { method: 'Метод и проверка', ai: 'AI и новизна', value: 'Ценность', scale: 'Масштаб и внедрение' };
+const DIFF = { hard: 'трудный', medium: 'средний', easy: 'лёгкий' };
+const $ = (id) => document.getElementById(id);
+const store = { get() { try { return JSON.parse(localStorage.getItem('qa-done') || '{}'); } catch { return {}; } },
+                set(v) { try { localStorage.setItem('qa-done', JSON.stringify(v)); } catch {} } };
+let done = store.get(), cat = 'all', hardOnly = false, pool = [], pos = 0;
+const filtered = () => BANK.map((q, i) => ({ ...q, i })).filter((q) => (cat === 'all' || q.cat === cat) && (!hardOnly || q.difficulty === 'hard'));
+function rebuild() {
+  const all = filtered();
+  pool = [...all.filter((q) => done[q.i] !== 'ok'), ...all.filter((q) => done[q.i] === 'ok')];
+  pos = 0; show(); renderList(); renderProgress();
+}
+function renderProgress() {
+  const all = filtered(), ok = all.filter((q) => done[q.i] === 'ok').length;
+  $('progressText').textContent = `Отработано ${ok} из ${all.length}`;
+  $('progressBar').style.width = all.length ? `${(ok / all.length) * 100}%` : '0';
+}
+function show() {
+  resetTimer(); $('answer').hidden = true;
+  const q = pool[pos];
+  if (!q) { $('qText').textContent = 'Под этот фильтр вопросов нет.'; $('qIndex').textContent = ''; return; }
+  $('qIndex').textContent = `Вопрос ${pos + 1} из ${pool.length}`;
+  $('qCat').textContent = CAT[q.cat] || q.cat;
+  $('qDiff').textContent = DIFF[q.difficulty] || q.difficulty;
+  $('qDiff').className = 'pill' + (q.difficulty === 'hard' ? ' hard' : '');
+  $('qText').textContent = q.q; $('aText').textContent = q.answer; $('aAvoid').textContent = q.avoid;
+}
+function reveal() { $('answer').hidden = false; stopTimer(); }
+function next() { if (pool.length) { pos = (pos + 1) % pool.length; show(); } }
+function mark(v) { const q = pool[pos]; if (!q) return; done[q.i] = v; store.set(done); renderProgress(); renderList(); next(); }
+const R = 28, C = 2 * Math.PI * R; let t0 = null, raf = 0, elapsed = 0;
+$('arc').style.strokeDasharray = C;
+function drawTimer() {
+  const s = elapsed / 1000, left = 30 - s;
+  $('secs').textContent = left >= 0 ? Math.ceil(left) : '+' + Math.floor(-left);
+  $('arc').style.strokeDashoffset = C * Math.min(1, s / 30);
+  $('dial').classList.toggle('late', s > 20 && s <= 30); $('dial').classList.toggle('over', s > 30);
+}
+function tick() { elapsed = performance.now() - t0; drawTimer(); raf = requestAnimationFrame(tick); }
+function startTimer() { t0 = performance.now() - elapsed; raf = requestAnimationFrame(tick); $('timerBtn').textContent = 'Пауза'; }
+function stopTimer() { cancelAnimationFrame(raf); raf = 0; $('timerBtn').textContent = elapsed ? 'Дальше' : 'Старт'; }
+function resetTimer() { cancelAnimationFrame(raf); raf = 0; elapsed = 0; drawTimer(); $('timerBtn').textContent = 'Старт'; }
+$('timerBtn').onclick = () => (raf ? stopTimer() : startTimer());
+function renderList() {
+  const box = $('list'); box.innerHTML = '';
+  for (const q of filtered()) {
+    const d = document.createElement('details');
+    d.innerHTML = `<summary><span class="pill${q.difficulty === 'hard' ? ' hard' : ''}">${DIFF[q.difficulty] || ''}</span><span></span></summary>
+      <div class="answer"><h3>Эталонный ответ</h3><p></p><h3>Чего не говорить</h3><p class="avoid"></p></div>`;
+    d.querySelector('summary span:last-child').textContent = q.q + (done[q.i] === 'ok' ? ' · отработан' : '');
+    const ps = d.querySelectorAll('.answer p'); ps[0].textContent = q.answer; ps[1].textContent = q.avoid;
+    box.appendChild(d);
+  }
+}
+document.querySelectorAll('[data-cat]').forEach((b) => b.onclick = () => {
+  cat = b.dataset.cat; document.querySelectorAll('[data-cat]').forEach((x) => x.setAttribute('aria-pressed', x === b)); rebuild();
+});
+$('hardOnly').onclick = (e) => { hardOnly = !hardOnly; e.currentTarget.setAttribute('aria-pressed', hardOnly); rebuild(); };
+$('mode').onclick = (e) => {
+  const list = $('list').hidden; $('list').hidden = !list; $('trainer').hidden = list;
+  e.currentTarget.setAttribute('aria-pressed', list); e.currentTarget.textContent = list ? 'Тренировка' : 'Все вопросы списком';
+};
+$('revealBtn').onclick = reveal; $('nextBtn').onclick = next;
+$('gotIt').onclick = () => mark('ok'); $('again').onclick = () => mark('again');
+document.addEventListener('keydown', (e) => {
+  if (e.target.closest('input, textarea') || !$('list').hidden) return;
+  if (e.code === 'Space') { e.preventDefault(); raf ? stopTimer() : startTimer(); }
+  else if (e.key === 'Enter' && !e.target.closest('button')) { e.preventDefault(); reveal(); }
+  else if (e.key === 'ArrowRight') next();
+});
+rebuild();
+</script>
