@@ -5,8 +5,7 @@ from ml.sensor import STATE_SCHEMA, sense
 STATE = {"cashier_present": True, "cashier_at_workplace": True, "cashier_holding_phone": False, "cashier_eating_or_drinking": False,
          "laptop_screen": "app_visible", "safe_door_open": "no", "key_in_safe_lock": "no",
          "cash_on_desk": False, "collection_bag_on_desk": False, "personal_items_on_desk": False,
-         "other_person_on_cashier_side": False, "people_count": 1,
-         "workplace_visible": "visible"}
+         "other_person_on_cashier_side": False, "people_count": 1}
 
 def test_schema_requires_all_keys():
     assert set(STATE_SCHEMA["required"]) == set(STATE)
@@ -22,6 +21,3 @@ def test_sense_drops_answers_missing_keys(fake_vlm_cls):
     vlm = fake_vlm_cls(lambda imgs, p: {"cashier_present": True})
     assert sense(vlm, [(0.0, Image.new("RGB", (8, 8)))], workers=1) == []
 
-
-def test_schema_has_workplace_visibility():
-    assert STATE_SCHEMA["properties"]["workplace_visible"]["enum"] == ["visible", "occluded", "degraded"]
