@@ -3,7 +3,7 @@
 Источник: `docs/superpowers/specs/2026-10-17-cashguard-design.md` и разбор `docs/frontend/case-analysis.md` (PDF + FAQ, 17.10.2026).
 Frontend уточнён в `docs/frontend/BRIEF.md`: React + Vite + TypeScript,
 сборка `frontend/dist`, шрифты в бандле. Старые указания на JS без сборки заменены этим решением.
-Актуальный tracker — Linear, проект **GuardTusk — Datathon 2026**. F0 — `In Progress`, F1 — `In Review`, остальные — `Todo`.
+Актуальный tracker — Linear, проект **GuardTusk — Datathon 2026**. F0/F6 — `In Progress`, F1/F2/F3/F4 — `In Review`, F5 — `Done`.
 Это снимок задач после сверки кейса; статусы не означают подтверждение реального backend.
 Пользователь проверил план и разрешил продолжить разработку с F0/F1.
 Выполненные проверки и открытая интеграция — в [отчёте приёмки](../frontend/acceptance.md).
@@ -36,7 +36,7 @@ API: `POST /api/v1/analyze`, `GET /api/v1/jobs/{id}`, `GET /api/v1/jobs/{id}/det
 - [ ] Фронт открывается по `/`.
 
 Уточнение кейса в MAIN-1: две API-проекции одной задачи должны совпадать по событиям/таймкодам/JPEG.
-Источник без точного пункта допустим по FAQ31; представление согласовать с F2 до изменения wire contract.
+Источник без точного пункта допустим по FAQ31; backend и F2 поддерживают nullable/отсутствующие `point` и `quote`.
 `rule:null` не подтверждает нормативную связь, заглушка не доказывает качество ML.
 
 ### B2 / MAIN-2. Очередь задач, SQLite и прогресс
@@ -168,36 +168,51 @@ README репозитория и текст сдачи.
 
 ### F2. Проверяемый результат: события, кадры и нормативы — MAIN-6
 
-[Задача в Linear](https://linear.app/grim-stack/issue/MAIN-6/f2-proveryaemyj-rezultat-sobytiya-kadry-i-normativy) · Urgent · Todo · SNOWNUMB.
+[Задача в Linear](https://linear.app/grim-stack/issue/MAIN-6/f2-proveryaemyj-rezultat-sobytiya-kadry-i-normativy) · Urgent · In Review · SNOWNUMB.
 
 На каждое событие: тип, точный таймкод, 1–3 JPEG, наблюдение, объяснение и источник; увеличение кадра. Проверить 0/1/3+ событий, новый тип, отсутствие пункта/rule, повреждённые кадры и противоречивый ответ. Пример мока не выдавать за обработку.
+
+Карточки и shadcn Dialog реализованы; runtime сверён с backend. 136 frontend-тестов и браузерные
+сценарии с демо/реальным HTTP stub проходят. Неполный и тестовый анализ обозначаются явно;
+приёмка настоящего ML остаётся открытой. Проверки — `docs/frontend/acceptance.md`.
 
 **Зависимости:** MAIN-1.
 Подробные требования, критерии приёмки и проверки записаны в задаче Linear.
 
 ### F5. Стиль Forte, доступность и состояния интерфейса — MAIN-11
 
-[Задача в Linear](https://linear.app/grim-stack/issue/MAIN-11/f5-stil-forte-dostupnost-i-sostoyaniya-interfejsa) · High · Todo · SNOWNUMB.
+[Задача в Linear](https://linear.app/grim-stack/issue/MAIN-11/f5-stil-forte-dostupnost-i-sostoyaniya-interfejsa) · High · Done · SNOWNUMB.
 
 Существующие токены Forte и shadcn/ui, локальный Open Sans, одна колонка до 800 px; все состояния, 375/1440 px, клавиатура, контраст и reduced motion. Проверка не ждёт F4.
+
+Исправлены переход фокуса, ARIA ошибок, перенос длинных предупреждений и React18 ref Overlay.
+10 состояний × 2 ширины проверены на явно синтетическом стенде, безопасные скриншоты подготовлены.
+Контраст input 3.49:1, кольца фокуса 7.54:1; reduced motion и светлая тема проверены по CSS/сборке.
+Все критерии F5 отмечены; реальный ML и публичный сервис остаются областью F6.
 
 **Зависимости:** MAIN-6, MAIN-5.
 Подробные требования, критерии приёмки и проверки записаны в задаче Linear.
 
 ### F6. Приёмка frontend: реальный API, публичный URL и офлайн — MAIN-13
 
-[Задача в Linear](https://linear.app/grim-stack/issue/MAIN-13/f6-priyomka-frontend-realnyj-api-publichnyj-url-i-oflajn) · High · Todo · SNOWNUMB.
+[Задача в Linear](https://linear.app/grim-stack/issue/MAIN-13/f6-priyomka-frontend-realnyj-api-publichnyj-url-i-oflajn) · High · In Progress · SNOWNUMB.
 
 Production UI с реальным backend/ML, .mov, паритет /jobs/{id} и /details, реальные JPEG/источники, публичный HTTPS,
-результат до 300 с и работа без внешней сети. Частичный отчёт F0/F1 создан в docs/frontend/acceptance.md;
-живые проверки F6 пока открыты.
+результат до 300 с и работа без внешней сети. Отчёт F0/F1/F2/F5 с окружением и ограничениями обновлён
+в docs/frontend/acceptance.md; документальный критерий F6 выполнен, две живые проверки открыты.
+Публичный HTTPS получен и проверен без ключа; MOV и ключ ожидаются лично.
+При интеграции только F5 поверх `main` 67034eb проходят 149 frontend-тестов, lint/build/format.
+Прежний POSIX teardown-сбой исправлен в main и проверен в предыдущем прогоне F6;
+полный Python suite и Docker в этой frontend-интеграции не повторялись.
+Публичный health показывает pipeline/RTX 4090, но `vllm.enabled=false/ready=false`;
+готовность Qwen3-VL-30B пока известна только со слов команды. Полная приёмка открыта.
 
 **Зависимости:** MAIN-5, MAIN-6, MAIN-11, MAIN-4.
 Подробные требования, критерии приёмки и проверки записаны в задаче Linear.
 
 ### F3. Плеер и переход к фрагменту события — MAIN-9
 
-[Задача в Linear](https://linear.app/grim-stack/issue/MAIN-9/f3-pleer-i-perehod-k-fragmentu-sobytiya) · Medium · Todo · SNOWNUMB.
+[Задача в Linear](https://linear.app/grim-stack/issue/MAIN-9/f3-pleer-i-perehod-k-fragmentu-sobytiya) · Medium · In Review · SNOWNUMB.
 
 Плеер по h264 preview, метки событий и контекст с −1 с. Время события и JPEG не сдвигать. Preview может отсутствовать; обязательный результат остаётся доступен. Согласовать доступ к media с B3.
 
@@ -206,7 +221,7 @@ Production UI с реальным backend/ML, .mov, паритет /jobs/{id} и
 
 ### F4. Дополнительно: дорожки состояний под плеером — MAIN-7
 
-[Задача в Linear](https://linear.app/grim-stack/issue/MAIN-7/f4-dopolnitelno-dorozhki-sostoyanij-pod-pleerom) · Low · Todo · SNOWNUMB.
+[Задача в Linear](https://linear.app/grim-stack/issue/MAIN-7/f4-dopolnitelno-dorozhki-sostoyanij-pod-pleerom) · Low · In Review · SNOWNUMB.
 
 Дополнение после F6, только реальные интервалы timeline. Дорожки и курсор связаны с F3; отсутствие данных скрывает блок. Сдачу и приёмку обязательного сценария не блокирует.
 
@@ -235,4 +250,8 @@ Production UI с реальным backend/ML, .mov, паритет /jobs/{id} и
 F4 не входит в зависимости F5/F6. Все frontend-задачи — дочерние MAIN-12, кроме самого F0.
 Для F6 дополнительно используем результаты B5/MAIN-8 и передаём итог в B6/MAIN-10.
 
-Существующая рабочая ветка F1: `feat/F1-upload-status`; этот аудит не создаёт ветку и не выполняет commit/push.
+F1/F2, backend и ML объединены командой в `main`; старые ветки больше не продолжаем.
+F5 подготовлен к включению через PR в `AIrevision/MAIN-11-accessibility-main` поверх
+`origin/main` 67034eb: перенесён только 4f40f9a, сохранены правки баннера, отправки и таймкода.
+F3/F4 опубликованы в рабочих ветках и находятся In Review; в эту интеграцию F5 не входят.
+Опубликованная история сохранена. Правила владельцев — `docs/team/2026-10-17-integration.md`.

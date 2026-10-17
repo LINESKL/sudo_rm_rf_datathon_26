@@ -84,7 +84,7 @@ function EvidencePreview({
           </Button>
         </DialogTrigger>
         <DialogContent className="evidence-dialog max-h-[90dvh] overflow-y-auto rounded-3xl sm:max-w-3xl">
-          <DialogHeader>
+          <DialogHeader className="pr-8">
             <DialogTitle>Кадр-доказательство</DialogTitle>
             <DialogDescription>
               Событие {eventIndex + 1}, кадр {frameIndex + 1} · {frame.timestamp_sec} с от начала
@@ -184,6 +184,8 @@ export function ResultView({
       </div>
       {result.violations.map((violation, index) => (
         <Card
+          role="article"
+          aria-label={`Событие ${index + 1}: ${violation.type}`}
           key={`${index}:${violation.type_id}:${violation.timecode_sec}`}
           className="event-card gap-5 rounded-2xl shadow-none"
         >
@@ -240,6 +242,7 @@ export function ResultView({
                   )}
                   <a
                     className="source-link"
+                    aria-label={`Открыть источник: ${violation.rule.document}`}
                     href={violation.rule.url}
                     target="_blank"
                     rel="noopener noreferrer"
