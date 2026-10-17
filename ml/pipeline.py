@@ -13,6 +13,10 @@ from ml.vlm import VLMClient
 
 STAGE_HOOKS: list = []  # (cands, scene, client, video_path, time_left) -> cands
 
+from ml.verify import verify  # noqa: E402
+
+STAGE_HOOKS.append(verify)
+
 
 def _evidence_times(c: Candidate, duration: float) -> list[float]:
     raw = [c.t, (c.t + min(c.t_end, duration)) / 2, min(c.t_end, duration) - 0.3]
