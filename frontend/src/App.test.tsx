@@ -103,7 +103,7 @@ describe('F1 processing states', () => {
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '42')
     expect(screen.getByText('Анализ сцены')).toBeInTheDocument()
     expect(screen.getByRole('timer')).toHaveAttribute('aria-live', 'off')
-    expect(screen.getByText(/не останавливает проверку на сервере/)).toBeInTheDocument()
+    expect(screen.getByText(/проверка продолжится на сервере/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Остановить ожидание' }))
     expect(state.reset).toHaveBeenCalledOnce()
   })
@@ -112,7 +112,7 @@ describe('F1 processing states', () => {
     const state = renderState({ uploading: true, uploadProgress: 100, job: null })
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100')
     expect(screen.getByText(/Ожидаем подтверждение сервиса/)).toBeInTheDocument()
-    expect(screen.queryByText('Проверка завершена')).not.toBeInTheDocument()
+    expect(screen.queryByText('Результат проверки')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Отменить отправку' }))
     expect(state.reset).toHaveBeenCalledOnce()
   })
@@ -287,7 +287,7 @@ describe('F5 accessible upload flow', () => {
 
     view.rerenderState({ done: true, busy: false, details: cleanResult('job-1') })
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Проверка завершена' })).toHaveFocus(),
+      expect(screen.getByRole('heading', { name: 'Результат проверки' })).toHaveFocus(),
     )
     await user.tab()
     expect(screen.getByRole('button', { name: 'Обновить доступ к видео' })).toHaveFocus()
@@ -390,5 +390,34 @@ describe('Observer branding', () => {
     expect(screen.getByRole('link', { name: 'Observer — главная' })).toHaveTextContent('Observer')
     expect(screen.getByText('AI-проверка кассовой дисциплины по видео')).toBeVisible()
     expect(document.body).not.toHaveTextContent(/GuardTusk|CashGuard/i)
+  })
+})
+
+describe('Review screens', () => {
+  it('explains the three steps of a check on the empty upload screen', () => {
+    renderState({ busy: false, job: null })
+    const steps = screen.getByRole('list', { name: 'Как проходит проверка' })
+    expect(steps).toHaveTextContent('Загрузите запись')
+    expect(steps).toHaveTextContent('Решение принимаете вы')
+    expect(document.querySelector('.section-number')).toBeNull()
+  })
+
+  it('identifies a job reopened by link and says the tab can be closed', () => {
+    renderState({
+      details: {
+        job_id: 'job-1',
+        status: 'processing',
+        progress: { stage: 'scene', value: 0.5 },
+        stages: [],
+      },
+    })
+    expect(screen.getByText('Задача job-1')).toBeInTheDocument()
+    expect(screen.getByText(/Можно закрыть вкладку/)).toBeInTheDocument()
+  })
+
+  it('names the reviewed job under the result heading', async () => {
+    renderState({ done: true, busy: false, details: cleanResult('job-1') })
+    expect(await screen.findByRole('heading', { name: 'Результат проверки' })).toBeVisible()
+    expect(screen.getByText('Задача job-1')).toBeVisible()
   })
 })

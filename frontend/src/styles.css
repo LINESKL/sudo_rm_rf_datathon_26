@@ -274,11 +274,6 @@
     align-items: flex-start;
     gap: 12px;
   }
-  .section-number {
-    color: var(--brand);
-    font-size: 12px;
-    padding-top: 4px;
-  }
   .panel-heading h2 {
     color: var(--primary);
     font-size: 20px;
@@ -600,6 +595,53 @@
     border: 0;
   }
   @media (max-width: 600px) {
+    .how-steps {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .file-thumb {
+      width: min(100%, 280px);
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+    .file-summary-thumb {
+      width: 96px;
+      aspect-ratio: 16 / 9;
+      flex-shrink: 0;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+    .how-steps {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 20px 0 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: how;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+    .how-steps li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      counter-increment: how;
+    }
+    .how-steps li::before {
+      content: counter(how);
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--muted);
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 600;
+    }
     .event-body {
       grid-template-columns: minmax(0, 1fr);
       gap: 16px;
