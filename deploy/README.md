@@ -60,18 +60,61 @@ vllm serve Qwen/Qwen3-VL-8B-Instruct --host 127.0.0.1 --port 8001 \
 
 ```bash
 export IMAGE=cashguard:stub
-export VIDEO_DIR=/absolute/path/to/videos  # внутри должен быть sample.mp4
+export VIDEO_DIR=/absolute/path/to/videos
+export VIDEO_FILE=sample.mov
+export VIDEO_SOURCE=dataset  # synthetic для сгенерированного видео
 export WORKSPACE_DIR=/absolute/path/to/offline-workspace
 export VLLM_ENABLED=0
 bash deploy/offline-check.sh
 ```
 
+Образ нужно предварительно собрать с сетью (`docker build --target stub -t cashguard:stub .`).
+Офлайн-проверка использует только уже имеющийся образ (`--pull never`). `API_KEY`
+должен быть задан в окружении; его значение не передаётся аргументом командной строки.
+Для каждого прогона лучше использовать отдельный пустой WORKSPACE_DIR.
+
+Из PowerShell с установленным Git Bash:
+
+```powershell
+$env:API_KEY = python -c 'import secrets; print(secrets.token_urlsafe(32))'
+$env:IMAGE = 'cashguard:stub'
+$env:VIDEO_DIR = 'C:/absolute/path/to/videos'
+$env:VIDEO_FILE = 'sample.mov'
+$env:VIDEO_SOURCE = 'dataset'
+$env:WORKSPACE_DIR = "$($PWD.Path.Replace('\', '/'))/test-results/docker-offline"
+$env:VLLM_ENABLED = '0'
+$env:MSYS_NO_PATHCONV = '1'
+& 'C:/Program Files/Git/bin/bash.exe' deploy/offline-check.sh
+```
+
+MSYS_NO_PATHCONV предотвращает подмену путей `/workspace` и `/videos` Git Bash.
+В репозитории окончания строк `*.sh` зафиксированы как LF.
+
 Проверка реального образа: задать `IMAGE`, `VLLM_ENABLED=1`,
 `ANALYZER=ml:analyze`, `REQUIRE_REAL=1`; подготовить веса в workspace.
-Скрипт использует `--network none` и запускает HTTP-клиент внутри контейнера.
-Результаты и журнал сохраняются в `WORKSPACE_DIR/offline-results`.
+Скрипт использует `--network none`, не публикует порты и запускает HTTP-клиент
+внутри контейнера. Проверяются отсутствие внешнего сетевого интерфейса и отказ
+внешнего TCP-соединения, зависимости, полная HTTP-приёмка одного видео, шесть
+одновременных загрузок того же видео и сохранение результатов после рестарта.
+Шесть повторов одного файла проверяют очередь; это не оценка качества на шести разных видео.
+Результаты, image ID и журнал сохраняются в `WORKSPACE_DIR/offline-results`:
+`network.json`, `acceptance.json`, `summary.json`, `restart.json`, `image-id.txt`,
+`pip-check.txt`, `container.log`. Журнал сохраняется и при ошибке проверки.
+Нагрузочный скрипт также сохраняет JSON с кадрами: эти локальные файлы не публиковать.
+Тестовый контейнер удаляется после завершения; образ и workspace с результатами сохраняются.
 Успех со stub не является подтверждением работы реального ML без сети.
 Изоляция блокирует внешний трафик; журнал надо проверить также на попытки сетевых обращений.
+
+17.10.2026 проверен локальный образ `cashguard:stub-offline-check` на Docker Desktop
+4.43.1 / Engine 28.3.0, Linux amd64: Python 3.12.15, FFmpeg 7.1.5, `pip check` без
+конфликтов. Сетевая изоляция, HTTP-приёмка, шесть загрузок и рестарт прошли.
+Локальный image ID: `sha256:06cd2c1bd2764078eeb904c9fa999657a913b0d50dada5226edea8c1f0d3199f`.
+Образ не публиковался в registry. Подробные результаты — [протокол](../docs/backend-acceptance.md).
+
+Для переноса готового образа на хост без интернета можно выполнить `docker save`
+на машине сборки и `docker load` на целевой машине. Сборка зависимостей требует
+сети либо заранее подготовленного локального кеша; подтверждён именно офлайн-запуск
+готового образа. Для GPU-варианта отдельно переносятся все выбранные веса.
 
 ## RunPod и восстановление
 
