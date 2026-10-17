@@ -11,7 +11,7 @@ details = result.to_details(job_id, preview)  # ответ GET /api/v1/jobs/{id}
 Для разработки и eval: `python -m pip install -r requirements-dev.txt`.
 API с заглушкой требует только `requirements.txt`.
 
-Окружение: `VLM_BASE_URL` (по умолчанию `http://localhost:8001/v1`), `VLM_MODEL` (по умолчанию `Qwen/Qwen3-VL-8B-Instruct`),
+Окружение: `VLM_BASE_URL` (по умолчанию `http://localhost:8001/v1`), `VLM_MODEL` (на стенде `QuantTrio/Qwen3-VL-30B-A3B-Instruct-AWQ`),
 `FFMPEG_BIN` / `FFPROBE_BIN` (по умолчанию команды из PATH).
 В бэкенде реальный конвейер выбирается через `ANALYZER=ml:analyze`.
 
@@ -21,8 +21,9 @@ vLLM: `vllm serve <local-model-path> --served-model-name <VLM_MODEL> --host 127.
 `analyze` синхронная и тяжёлая — вызывать в потоке/процессе. Исключения ловить снаружи → `failed`.
 Если часть запросов VLM не выполнена, JSON не соответствует схеме, пропущен этап
 или исчерпан бюджет, библиотека помечает результат `degraded=True`.
-Такой результат нельзя интерпретировать как полный анализ. Бэкенд переводит
-задачу в `failed`, даже если библиотечный `verdict` равен `no_violation`.
+Такой результат нельзя интерпретировать как полный анализ. Бэкенд отдаёт его со статусом `done`
+и флагом `degraded`, интерфейс помечает его «требует ручной проверки»; `failed` — только если
+VLM не ответил ни на один кадр.
 Общий жёсткий таймаут и уничтожение дерева процессов обеспечивает бэкенд.
 Сам `deadline_s` пока не прерывает выполняющийся запрос VLM: это бюджет этапов.
 

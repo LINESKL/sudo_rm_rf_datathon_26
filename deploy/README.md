@@ -42,7 +42,7 @@ docker run -d --name observer --restart unless-stopped --gpus all \
 `MODEL_PATH`, `HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1`, телеметрия отключена.
 На старте скачивания нет; отсутствующий `config.json` приводит к явной ошибке.
 
-По решению команды модель по умолчанию — `Qwen/Qwen3-VL-8B-Instruct` (Apache-2.0),
+Модель по умолчанию — `QuantTrio/Qwen3-VL-30B-A3B-Instruct-AWQ` (Apache-2.0; раньше 8B),
 запасная — `Qwen/Qwen3-VL-4B-Instruct`; окончательный выбор после Kaggle-спайка.
 Цель — 24 ГБ VRAM. `start.sh` выставляет `VLM_MODEL`, публикует локальные веса
 под этим же именем через `--served-model-name`, задаёт `--max-model-len 8192`
@@ -54,7 +54,7 @@ docker run -d --name observer --restart unless-stopped --gpus all \
 Команда запуска для среды с уже подготовленным HF-кешем:
 
 ```bash
-vllm serve Qwen/Qwen3-VL-8B-Instruct --host 127.0.0.1 --port 8001 \
+vllm serve QuantTrio/Qwen3-VL-30B-A3B-Instruct-AWQ --host 127.0.0.1 --port 8001 \
   --max-model-len 8192 --limit-mm-per-prompt '{"image": 6}'
 ```
 

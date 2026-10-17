@@ -9,7 +9,7 @@ fi
 export DATA_DIR="${DATA_DIR:-/workspace/data}"
 mkdir -p "$DATA_DIR"
 backend_python="${BACKEND_PYTHON:-python3}"
-export VLM_MODEL="${VLM_MODEL:-Qwen/Qwen3-VL-8B-Instruct}"
+export VLM_MODEL="${VLM_MODEL:-QuantTrio/Qwen3-VL-30B-A3B-Instruct-AWQ}"
 export VLM_BASE_URL="${VLM_BASE_URL:-http://localhost:8001/v1}"
 vllm_pid=''
 api_pid=''

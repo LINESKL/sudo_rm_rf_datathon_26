@@ -43,8 +43,8 @@ RUN /opt/backend/bin/pip install --no-cache-dir -r requirements-ml.txt -c requir
 RUN sed -i 's/\r$//' deploy/*.sh && chmod +x deploy/*.sh
 ENV PYTHONUNBUFFERED=1 BACKEND_PYTHON=/opt/backend/bin/python \
     DATA_DIR=/workspace/data FRONTEND_DIR=/app/frontend/dist \
-    MODEL_PATH=/workspace/models/qwen VLLM_ENABLED=1 ANALYZER=ml.stub:analyze \
-    VLM_BASE_URL=http://localhost:8001/v1 VLM_MODEL=Qwen/Qwen3-VL-8B-Instruct ML_DEADLINE_S=240 \
+    MODEL_PATH=/workspace/models/qwen VLLM_ENABLED=1 ANALYZER=ml:analyze \
+    VLM_BASE_URL=http://localhost:8001/v1 VLM_MODEL=QuantTrio/Qwen3-VL-30B-A3B-Instruct-AWQ ML_DEADLINE_S=240 \
     HF_HOME=/workspace/cache/huggingface HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
     HF_HUB_DISABLE_TELEMETRY=1 VLLM_NO_USAGE_STATS=1 DO_NOT_TRACK=1
 EXPOSE 8000
