@@ -1,16 +1,27 @@
-# CashGuard — Datathon 2026
+# GuardTusk — Datathon 2026
 
 Бэкенд проверки видео кассовой зоны: FastAPI, очередь из трёх воркеров,
 SQLite WAL, h264-превью и отдельный контракт ответа жюри.
 
 **Текущий анализатор — заглушка.** Она ждёт 5 секунд, извлекает реальный первый
 кадр и возвращает одно явно вымышленное нарушение. Это средство интеграции;
-Код реального ML подключён и включается отдельно; VLM-сервер, публичный адрес
+код реального ML подключён и включается отдельно; VLM-сервер, публичный адрес
 и результат проверки качества ещё требуют приёмки.
 
 ## Быстрый запуск
 
-Нужны Python 3.12+ и `ffmpeg`/`ffprobe` в PATH. Команды выполняются из корня репозитория.
+Нужны Python 3.12+, `ffmpeg`/`ffprobe` в PATH и Node.js согласно `frontend/package.json`
+(проверено с Node 24.19.0). Команды выполняются из корня репозитория.
+
+Сначала соберите production-интерфейс, который FastAPI раздаёт с того же origin:
+
+```bash
+npm --prefix frontend ci
+npm --prefix frontend run build
+```
+
+В Windows при ограничении PowerShell ExecutionPolicy используйте `npm.cmd`.
+API-ключ вводится в интерфейсе после запуска сервера; в сборку его не добавляйте.
 
 ```bash
 python -m venv .venv
@@ -35,11 +46,40 @@ $env:API_KEY = .venv/Scripts/python.exe -c 'import secrets; print(secrets.token_
 Список настроек — [.env.example](.env.example); файл `.env` автоматически не читается.
 Запускайте **один** процесс uvicorn: внутри него уже есть три воркера анализа.
 
-- UI: [localhost:8000](http://localhost:8000). Готовую сборку фронтенда поместить в `frontend/dist`.
-  Пока сборки нет, корень показывает страницу состояния API.
+- UI: [localhost:8000](http://localhost:8000). Сборка создаёт `frontend/dist`;
+  если она отсутствует, корень показывает страницу состояния API.
 - API: [localhost:8000/docs](http://localhost:8000/docs).
 - Состояние: [localhost:8000/health](http://localhost:8000/health).
 - Ключ: значение вашей переменной `API_KEY`; общего встроенного ключа нет.
+
+## Интерфейс и разработка
+
+Подключён frontend из `feat/F1-upload-status` (`f34d07b`): React, Vite,
+TypeScript, Tailwind и существующие компоненты shadcn/ui. Добавлены карточки
+событий, JPEG с увеличением, нормативные источники и защищённый плеер.
+Таймкод открывает контекст за секунду до события. Если MP4 недоступен,
+карточки остаются видимыми; «Обновить доступ к видео» повторяет `/details`
+и обновляет HttpOnly cookie без API-ключа в URL.
+
+```bash
+npm --prefix frontend run dev
+# FastAPI должен работать на 127.0.0.1:8000.
+# Vite проксирует /api и /previews на один backend.
+npm --prefix frontend run lint
+npm --prefix frontend test
+npm --prefix frontend run build
+npm --prefix frontend run format:check
+```
+
+Отдельный демонстрационный режим: `npm --prefix frontend run demo` и ключ
+`demo-key`. Он не анализирует видео. Production не переключается на демо
+при ошибках API; серверная заглушка явно обозначена в результате.
+Все шрифты и ресурсы UI локальные. После `build:demo` обязательно выполните
+обычный `build` перед передачей сервису или Docker-сборкой.
+
+Бриф: [docs/frontend/BRIEF.md](docs/frontend/BRIEF.md).
+Результаты и границы проверки: [приёмка frontend](docs/frontend/acceptance.md),
+согласованный формат полей и cookie — [контракт](docs/frontend/backend-integration.md).
 
 ## Проверка видео
 

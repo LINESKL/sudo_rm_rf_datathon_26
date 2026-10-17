@@ -13,6 +13,10 @@ venv/
 
 # Node
 node_modules/
+frontend/dist/
+*.tsbuildinfo
+output/playwright/
+.playwright-cli/
 
 # Data & models (большие файлы не коммитим)
 data/raw/
