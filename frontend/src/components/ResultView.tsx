@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   CircleAlert,
   ExternalLink,
   ImageOff,
+  Play,
   ScanSearch,
   ShieldCheck,
   Upload,
@@ -21,26 +22,11 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import type { DoneDetails, EvidenceFrame } from '@/api/contracts'
-
-function timecode(seconds: number) {
-  const roundedSeconds = Math.round(seconds * 10) / 10
-  const minutes = Math.floor(roundedSeconds / 60)
-    .toString()
-    .padStart(2, '0')
-  const rest = new Intl.NumberFormat('ru-RU', {
-    minimumIntegerDigits: 2,
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-    useGrouping: false,
-  }).format(roundedSeconds % 60)
-  return `${minutes}:${rest}`
-}
-
-const seconds1 = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1, useGrouping: false })
-
-function sec(value: number) {
-  return seconds1.format(value)
-}
+import { safePreviewUrl } from '@/api/client'
+import { timecode } from '@/lib/timecode'
+import { VideoPreview } from './VideoPreview'
+import type { VideoPreviewHandle } from './VideoPreview'
+import { StateTimeline } from './StateTimeline'
 
 function EvidenceImage({ frame, large = false }: { frame: EvidenceFrame; large?: boolean }) {
   const [failed, setFailed] = useState(false)
@@ -63,10 +49,14 @@ function EvidencePreview({
   frame,
   eventIndex,
   frameIndex,
+  canSeek,
+  onShow,
 }: {
   frame: EvidenceFrame
   eventIndex: number
   frameIndex: number
+  canSeek: boolean
+  onShow: () => void
 }) {
   return (
     <figure className="evidence-preview">
@@ -95,8 +85,20 @@ function EvidencePreview({
           <EvidenceImage frame={frame} large />
         </DialogContent>
       </Dialog>
-      <figcaption className="mono" title={`${frame.timestamp_sec} с от начала видео`}>
-        {timecode(frame.timestamp_sec)} · {sec(frame.timestamp_sec)} с
+      <figcaption>
+        <span className="mono" title={`${frame.timestamp_sec} с от начала видео`}>
+          {timecode(frame.timestamp_sec)} · {frame.timestamp_sec} с
+        </span>
+        <Button
+          type="button"
+          variant="link"
+          className="evidence-show h-auto min-h-6 px-0 text-brand has-[>svg]:px-0"
+          disabled={!canSeek}
+          aria-label={`Показать кадр ${frameIndex + 1} события ${eventIndex + 1} в видео`}
+          onClick={onShow}
+        >
+          <Play aria-hidden="true" /> В видео
+        </Button>
       </figcaption>
     </figure>
   )
@@ -104,19 +106,103 @@ function EvidencePreview({
 
 const confidenceLabels = { low: 'низкая', medium: 'средняя', high: 'высокая' }
 
+const percentOf = (seconds: number, duration: number) =>
+  `${Math.max(0, Math.min(100, (seconds / duration) * 100))}%`
+
 export function ResultView({
   result,
   onReset,
   serviceMode,
+  apiKey = '',
 }: {
   result: DoneDetails
   onReset: () => void
   serviceMode: 'stub' | 'pipeline' | 'unknown'
+  apiKey?: string
 }) {
+  const playerRef = useRef<VideoPreviewHandle>(null)
+  const [position, setPosition] = useState<{ jobId: string; time: number | null } | null>(null)
+  const [availability, setAvailability] = useState<{ jobId: string; available: boolean } | null>(
+    null,
+  )
+  const [selected, setSelected] = useState<{ jobId: string; index: number } | null>(null)
+  const canSeek =
+    availability?.jobId === result.job_id
+      ? availability.available
+      : safePreviewUrl(result.preview_url) !== null
+  const activeTime = canSeek && position?.jobId === result.job_id ? position.time : null
+  const isActive = (index: number) => {
+    const event = result.violations[index]
+    return (
+      activeTime !== null &&
+      activeTime >= event.timecode_sec &&
+      activeTime <= event.timecode_end_sec
+    )
+  }
+  // Выбранная карточка подсвечена сразу после клика и до конца своего интервала.
+  const isHighlighted = (index: number) =>
+    isActive(index) ||
+    (selected?.jobId === result.job_id &&
+      selected.index === index &&
+      (activeTime === null || activeTime <= result.violations[index].timecode_end_sec))
+  function seek(index: number, seconds: number) {
+    setSelected({ jobId: result.job_id, index })
+    playerRef.current?.seek(Math.max(0, seconds - 1))
+  }
   const hasFindings = result.verdict === 'violation'
   const needsReview = result.degraded !== false || serviceMode !== 'pipeline'
+  const duration = result.duration_sec
   return (
     <div className="result-body">
+      <div
+        className={`result-banner ${hasFindings ? 'has-findings' : needsReview ? 'needs-review' : 'clean'}`}
+        role="status"
+      >
+        {hasFindings || needsReview ? (
+          <CircleAlert size={28} aria-hidden="true" />
+        ) : (
+          <ShieldCheck size={28} aria-hidden="true" />
+        )}
+        <div className="result-banner-text">
+          <h3>
+            {hasFindings
+              ? `Обнаружены признаки возможных нарушений: ${result.violations.length}`
+              : needsReview
+                ? 'Результат требует проверки'
+                : 'Нарушение не обнаружено'}
+          </h3>
+          {(hasFindings || needsReview) && (
+            <p>
+              {hasFindings
+                ? 'Просмотрите фрагменты видео и кадры-доказательства ниже.'
+                : 'Отсутствие находок не подтверждено. Просмотрите запись.'}
+            </p>
+          )}
+          <p className="result-banner-note">
+            <ShieldCheck size={16} aria-hidden="true" />
+            Результат — подсказка для проверки человеком. Решение принимает специалист.
+          </p>
+        </div>
+      </div>
+      <div className="result-facts">
+        {result.rules_checked !== undefined && (
+          <span>
+            Проверено правил<strong className="mono">{result.rules_checked}</strong>
+          </span>
+        )}
+        <span>
+          Длительность записи<strong className="mono">{timecode(duration)}</strong>
+        </span>
+        <span>
+          Время обработки
+          <strong className="mono">
+            {new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format(
+              result.processing_sec,
+            )}{' '}
+            с
+          </strong>
+        </span>
+      </div>
       {serviceMode === 'stub' && (
         <Alert className="mb-5 rounded-xl border-0 bg-muted">
           <ScanSearch />
@@ -156,41 +242,69 @@ export function ResultView({
           </AlertDescription>
         </Alert>
       )}
-      <div
-        className={`result-banner ${hasFindings ? 'has-findings' : needsReview ? 'needs-review' : 'clean'}`}
-        role="status"
-      >
-        {hasFindings || needsReview ? <CircleAlert size={28} /> : <ShieldCheck size={28} />}
-        <h3>
-          {hasFindings
-            ? `Обнаружены признаки возможных нарушений: ${result.violations.length}`
-            : needsReview
-              ? 'Результат требует проверки'
-              : 'Нарушение не обнаружено'}
-        </h3>
-      </div>
-      <div className="result-facts">
-        {result.rules_checked !== undefined && (
-          <span>
-            Проверено правил<strong className="mono">{result.rules_checked}</strong>
-          </span>
-        )}
-        <span>
-          Время обработки
-          <strong className="mono">
-            {new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format(
-              result.processing_sec,
-            )}{' '}
-            с
-          </strong>
-        </span>
-      </div>
+      <VideoPreview
+        key={result.job_id}
+        ref={playerRef}
+        result={result}
+        apiKey={apiKey}
+        onPositionChange={(time) => setPosition({ jobId: result.job_id, time })}
+        onAvailabilityChange={(available) => setAvailability({ jobId: result.job_id, available })}
+      />
+      {result.violations.length > 0 && duration > 0 && (
+        <div className="event-track" role="group" aria-label="События на шкале видео">
+          <div className="timeline-scale mono" aria-hidden="true">
+            <span>{timecode(0)}</span>
+            <span>{timecode(duration)}</span>
+          </div>
+          <div
+            className="event-track-rail"
+            style={{ height: `${result.violations.length * 32}px` }}
+          >
+            {result.violations.map((violation, index) => (
+              <Button
+                key={`${index}:${violation.type_id}`}
+                type="button"
+                variant="outline"
+                className="event-marker h-7 justify-start rounded-lg border-[var(--violation)]/45 bg-[var(--violation-bg)] px-2 text-xs text-[var(--violation)] shadow-none hover:bg-accent hover:text-[var(--violation)] disabled:opacity-100 data-[highlighted]:border-[var(--violation)] data-[highlighted]:bg-[var(--violation)] data-[highlighted]:text-white"
+                style={{
+                  top: `${index * 32}px`,
+                  left: percentOf(violation.timecode_sec, duration),
+                  width: percentOf(violation.timecode_end_sec - violation.timecode_sec, duration),
+                }}
+                disabled={!canSeek}
+                title={violation.type}
+                aria-label={`Событие ${index + 1}: ${violation.type}, ${timecode(violation.timecode_sec)}`}
+                aria-current={isActive(index) ? 'true' : undefined}
+                data-highlighted={isHighlighted(index) || undefined}
+                onClick={() => seek(index, violation.timecode_sec)}
+              >
+                <span className="mono">{index + 1}</span>
+                <span className="min-w-0 truncate font-normal">{violation.type}</span>
+              </Button>
+            ))}
+            {activeTime !== null && (
+              <span
+                className="timeline-cursor"
+                aria-hidden="true"
+                style={{ left: percentOf(activeTime, duration) }}
+              />
+            )}
+          </div>
+        </div>
+      )}
+      <StateTimeline
+        result={result}
+        activeTime={activeTime}
+        canSeek={canSeek}
+        onSeek={(seconds) => playerRef.current?.seek(seconds)}
+      />
       {result.violations.map((violation, index) => (
         <Card
           role="article"
           aria-label={`Событие ${index + 1}: ${violation.type}`}
           key={`${index}:${violation.type_id}:${violation.timecode_sec}`}
-          className="event-card gap-5 rounded-2xl shadow-none"
+          className={`event-card gap-5 rounded-2xl shadow-none ${isHighlighted(index) ? 'event-current' : ''}`}
+          aria-current={isActive(index) ? 'true' : undefined}
         >
           <CardHeader className="gap-3 px-5">
             <div className="event-heading">
@@ -200,9 +314,21 @@ export function ResultView({
               </CardTitle>
             </div>
             <div className="event-metadata">
-              <span className="mono" title={`${violation.timecode_sec} с от начала видео`}>
-                {timecode(violation.timecode_sec)} · {sec(violation.timecode_sec)} с
-              </span>
+              <Button
+                type="button"
+                variant="link"
+                className="mono min-h-11 h-auto whitespace-normal px-0 text-brand has-[>svg]:px-0"
+                aria-label={`Перейти к событию ${index + 1}, ${violation.timecode_sec} с`}
+                title={`${violation.timecode_sec} с от начала видео`}
+                disabled={!canSeek}
+                onClick={() => seek(index, violation.timecode_sec)}
+              >
+                <Play aria-hidden="true" />
+                {timecode(violation.timecode_sec)} · {violation.timecode_sec} с
+              </Button>
+              {isActive(index) && (
+                <Badge className="rounded-full bg-accent text-primary">Текущий фрагмент</Badge>
+              )}
               <Badge variant="secondary" className="rounded-full">
                 Уверенность: {confidenceLabels[violation.confidence_level]}
               </Badge>
@@ -216,6 +342,8 @@ export function ResultView({
                   frame={frame}
                   eventIndex={index}
                   frameIndex={frameIndex}
+                  canSeek={canSeek}
+                  onShow={() => seek(index, frame.timestamp_sec)}
                 />
               ))}
             </div>
@@ -254,7 +382,10 @@ export function ResultView({
                   </a>
                 </>
               ) : (
-                <p className="text-[var(--violation)]">Источник не указан, требуется проверка.</p>
+                <p className="rule-missing">
+                  <CircleAlert size={16} aria-hidden="true" />
+                  Норматив не определён, требуется проверка.
+                </p>
               )}
             </div>
           </CardContent>

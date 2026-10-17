@@ -302,6 +302,8 @@ describe('F5 accessible upload flow', () => {
       expect(screen.getByRole('heading', { name: 'Проверка завершена' })).toHaveFocus(),
     )
     await user.tab()
+    expect(screen.getByRole('button', { name: 'Обновить доступ к видео' })).toHaveFocus()
+    await user.tab()
     expect(screen.getByRole('button', { name: 'Новое видео' })).toHaveFocus()
     await user.keyboard('{Enter}')
     expect(view.reset).toHaveBeenCalled()
@@ -432,5 +434,41 @@ describe('F5 accessible upload flow', () => {
     expect(chooser).not.toHaveAttribute('aria-invalid', 'true')
     expect(chooser).not.toHaveAccessibleDescription(/Укажите API-ключ|Сервис не смог принять видео/)
     expect(view.start).not.toHaveBeenCalled()
+  })
+})
+
+describe('Polish: queue and result note', () => {
+  it('shows a queued job as waiting in line, with every stage still pending', () => {
+    renderState({
+      details: {
+        job_id: 'job-1',
+        status: 'processing',
+        progress: { stage: 'queued', value: 0 },
+        stages: [],
+      },
+    })
+    expect(screen.getByText('В очереди')).toBeInTheDocument()
+    expect(screen.getByText(/Задача в очереди/)).toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.getByText('Подготовка видео')).toBeInTheDocument()
+    expect(screen.getAllByText('Ожидание')).toHaveLength(4)
+  })
+
+  it('shows the human-review note once on the result screen', async () => {
+    renderState({ done: true, busy: false, details: cleanResult('job-1') })
+    expect(
+      await screen.findAllByText(
+        'Результат — подсказка для проверки человеком. Решение принимает специалист.',
+      ),
+    ).toHaveLength(1)
+  })
+})
+
+describe('Observer branding', () => {
+  it('names the product Observer in the header with its subtitle', () => {
+    renderState({ busy: false, job: null })
+    expect(screen.getByRole('link', { name: 'Observer — главная' })).toHaveTextContent('Observer')
+    expect(screen.getByText('AI-проверка кассовой дисциплины по видео')).toBeVisible()
+    expect(document.body).not.toHaveTextContent(/GuardTusk|CashGuard/i)
   })
 })
