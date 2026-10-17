@@ -31,10 +31,16 @@ if not gpus or not all(any(k in g for k in ("T4", "L4", "A100", "A10")) for g in
     sys.exit("Unsupported GPU for vLLM (need compute capability >= 7.0, e.g. T4)")
 
 model = os.environ.get("VLM_MODEL") or ("Qwen/Qwen3-VL-8B-Instruct" if len(gpus) >= 2 else "Qwen/Qwen3-VL-4B-Instruct")
-subprocess.run([sys.executable, "-m", "pip", "install", "-q", "vllm>=0.11", "-r",
+print(subprocess.run(["nvidia-smi"], capture_output=True, text=True).stdout[:600], flush=True)
+# vLLM в отдельном venv: системный torch/torchaudio Kaggle конфликтуют с колёсами vLLM
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "uv", "-r",
                 os.path.join(code_root, "requirements-ml.txt")], check=True)
+venv = f"{WORK}/vv"
+subprocess.run(["uv", "venv", "-q", "--python", sys.executable, venv], check=True)
+subprocess.run(["uv", "pip", "install", "-q", "--python", f"{venv}/bin/python",
+                os.environ.get("VLLM_SPEC", "vllm==0.11.0")], check=True)
 log = open(f"{WORK}/vllm.log", "w")
-srv = subprocess.Popen([sys.executable, "-m", "vllm.entrypoints.openai.api_server", "--model", model,
+srv = subprocess.Popen([f"{venv}/bin/python", "-m", "vllm.entrypoints.openai.api_server", "--model", model,
                         "--port", "8001", "--dtype", "half", "--tensor-parallel-size", str(len(gpus)),
                         "--max-model-len", "8192", "--limit-mm-per-prompt", '{"image": 6}',
                         "--gpu-memory-utilization", "0.9"], stdout=log, stderr=subprocess.STDOUT)
@@ -56,3 +62,4 @@ if ONLY:
 subprocess.run(cmd, check=False, env=env, cwd=code_root)
 srv.terminate()
 shutil.rmtree(f"{WORK}/unz", ignore_errors=True)
+shutil.rmtree(venv, ignore_errors=True)
