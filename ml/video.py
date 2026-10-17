@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import json
 import os
@@ -31,14 +32,44 @@ def _grab(path: Path | str, t: float, width: int) -> Image.Image:
     return Image.open(io.BytesIO(raw)).convert("RGB")
 
 
+_PNG = b"\x89PNG\r\n\x1a\n"
+_SELECT_CHUNK = 100
+
+
+def _video_id(path: Path | str) -> str:
+    """Cheap content identity (size + first MB) so cached VLM answers survive renames."""
+    p = Path(path)
+    with p.open("rb") as f:
+        head = f.read(1 << 20)
+    return hashlib.sha1(str(p.stat().st_size).encode() + head).hexdigest()[:16]
+
+
 def sample_frames(path: Path | str, times: list[float], width: int = 464) -> list[tuple[float, Image.Image]]:
+    """All requested frames in ONE ffmpeg pass (select by frame index) instead of a seek per frame."""
     duration, fps = probe(path)
     last = max(0.0, duration - 1.5 / fps)
-    result = []
-    for t in times:
-        t = min(max(0.0, t), last)
-        result.append((t, _grab(path, t, width)))
-    return result
+    clipped = [min(max(0.0, t), last) for t in times]
+    if not clipped:
+        return []
+    wanted = sorted({int(round(t * fps)) for t in clipped})
+    images = []
+    for start in range(0, len(wanted), _SELECT_CHUNK):  # long select expressions crash ffmpeg
+        chunk = wanted[start:start + _SELECT_CHUNK]
+        expr = "+".join(f"eq(n,{i})" for i in chunk)  # inside quotes commas need no escaping
+        raw = subprocess.run(
+            [os.getenv("FFMPEG_BIN", "ffmpeg"), "-nostdin", "-v", "error", "-threads", "2",
+             "-protocol_whitelist", "file,pipe", "-i", str(path),
+             "-vf", f"select='{expr}',scale={width}:-2", "-fps_mode", "passthrough",
+             "-f", "image2pipe", "-vcodec", "png", "-"],
+            check=True, capture_output=True, timeout=120).stdout
+        images += [Image.open(io.BytesIO(_PNG + c)).convert("RGB") for c in raw.split(_PNG)[1:]]
+    vid = _video_id(path)
+    by_index = {}
+    for i, img in zip(wanted, images):
+        img.info["src"] = f"{vid}@{i}@{width}"
+        by_index[i] = img
+    fallback = images[-1] if images else _grab(path, last, width)
+    return [(t, by_index.get(int(round(t * fps)), fallback)) for t in clipped]
 
 
 def low_res_stream(path: Path | str, fps: float = 4.0, size: tuple[int, int] = (58, 106)) -> tuple[list[float], np.ndarray]:

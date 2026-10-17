@@ -23,3 +23,34 @@ def test_jpeg_b64(tiny_video):
     _, img = sample_frames(tiny_video, [1.0])[0]
     raw = base64.b64decode(to_jpeg_b64(img))
     assert raw[:2] == b"\xff\xd8"
+
+
+def test_sample_frames_uses_one_ffmpeg_pass(tiny_video, monkeypatch):
+    import subprocess as sp
+    import ml.video as video
+    real, calls = sp.run, []
+
+    def counting(cmd, *a, **k):
+        if "ffmpeg" in str(cmd[0]):
+            calls.append(cmd)
+        return real(cmd, *a, **k)
+
+    monkeypatch.setattr(video.subprocess, "run", counting)
+    frames = sample_frames(tiny_video, [0.5 * i for i in range(12)])
+    assert len(frames) == 12 and len(calls) == 1
+
+
+def test_sample_frames_match_seek_based_grab(tiny_video):
+    import numpy as np
+    from ml.video import _grab
+    (_, fast), = sample_frames(tiny_video, [2.0])
+    slow = _grab(tiny_video, 2.0, 464)
+    diff = np.abs(np.asarray(fast, dtype=int) - np.asarray(slow, dtype=int)).mean()
+    assert fast.size == slow.size and diff < 3
+
+
+def test_frames_carry_stable_source_id(tiny_video):
+    a = sample_frames(tiny_video, [1.0])[0][1].info["src"]
+    b = sample_frames(tiny_video, [1.0])[0][1].info["src"]
+    c = sample_frames(tiny_video, [2.0])[0][1].info["src"]
+    assert a == b and a != c

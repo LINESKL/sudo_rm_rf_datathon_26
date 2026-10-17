@@ -83,3 +83,27 @@ def test_run_eval_jobs_runs_videos_concurrently(tmp_path, monkeypatch):
     import json
     assert len(json.loads((tmp_path / "rows.json").read_text())) == 4
     assert peak[0] >= 2
+
+
+def test_run_eval_cache_offline_and_dev_set(tmp_path, monkeypatch):
+    import os
+
+    import eval.run_eval as run_eval
+    from ml.types import AnalysisResult
+
+    labels = [{"name": n, "path": "p", "violation": False, "times": []} for n in ("Х-28", "Х-99")]
+    monkeypatch.setattr(run_eval, "load_labels", lambda x, v: labels)
+    seen = []
+
+    def fake_analyze(path):
+        seen.append((os.environ.get("VLM_CACHE_DIR"), os.environ.get("VLM_CACHE_ONLY")))
+        return AnalysisResult(duration_sec=1.0, violations=[], timeline={}, rules_checked=1)
+
+    monkeypatch.setattr(run_eval, "analyze", fake_analyze)
+    # register both vars with monkeypatch so whatever main() writes is undone after the test
+    monkeypatch.setenv("VLM_CACHE_DIR", "")
+    monkeypatch.setenv("VLM_CACHE_ONLY", "")
+    monkeypatch.setattr("sys.argv", ["run_eval", "--videos", "v", "--labels", "l", "--out", str(tmp_path),
+                                     "--cache", str(tmp_path / "c"), "--offline", "--set", "dev"])
+    run_eval.main()
+    assert seen == [(str(tmp_path / "c"), "1")]  # only Х-28 is in the dev set

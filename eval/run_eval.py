@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -18,10 +19,21 @@ def main() -> None:
     ap.add_argument("--out", required=True)
     ap.add_argument("--only", default="")
     ap.add_argument("--jobs", type=int, default=1, help="videos analysed concurrently")
+    ap.add_argument("--cache", default="", help="store/reuse VLM answers in this directory")
+    ap.add_argument("--offline", action="store_true", help="cache only, no VLM calls (re-check rules in seconds)")
+    ap.add_argument("--set", default="", help="named video set from eval/sets/<name>.txt, e.g. dev")
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    only = {s.strip().replace("X", "Х") for s in a.only.split(",") if s.strip()}
+    if a.cache:
+        os.environ["VLM_CACHE_DIR"] = a.cache
+    if a.offline:
+        os.environ["VLM_CACHE_ONLY"] = "1"
+    names = a.only.split(",")
+    if a.set:
+        listing = Path(__file__).with_name("sets") / f"{a.set}.txt"
+        names += [ln for ln in listing.read_text(encoding="utf-8").splitlines() if ln and not ln.startswith("#")]
+    only = {s.strip().replace("X", "Х") for s in names if s.strip()}
     todo = [lab for lab in load_labels(a.labels, a.videos) if not only or lab["name"] in only]
 
     def run_one(lab):

@@ -51,3 +51,23 @@ def test_redirect_counts_failure(monkeypatch):
     client = VLMClient("http://x/v1", "m")
     assert client.ask_json([], "q", {}) is None
     assert client.failures == 1
+
+
+def test_cache_hits_skip_the_network(monkeypatch, tmp_path):
+    posts = []
+    monkeypatch.setattr(requests.Session, "post", lambda self, *a, **k: posts.append(1) or _Resp('{"ok": 1}'))
+    monkeypatch.setenv("VLM_CACHE_DIR", str(tmp_path))
+    img = Image.new("RGB", (8, 8)); img.info["src"] = "v@10@464"
+    c = VLMClient("http://x/v1", "m")
+    assert c.ask_json([img], "q", {}) == {"ok": 1}
+    assert c.ask_json([img], "q", {}) == {"ok": 1}
+    assert len(posts) == 1
+    assert c.ask_json([img], "other prompt", {}) == {"ok": 1} and len(posts) == 2
+
+
+def test_cache_only_mode_never_calls_network(monkeypatch, tmp_path):
+    def boom(self, *a, **k): raise AssertionError("network used")
+    monkeypatch.setattr(requests.Session, "post", boom)
+    monkeypatch.setenv("VLM_CACHE_DIR", str(tmp_path))
+    monkeypatch.setenv("VLM_CACHE_ONLY", "1")
+    assert VLMClient("http://x/v1", "m").ask_json([], "q", {}) is None

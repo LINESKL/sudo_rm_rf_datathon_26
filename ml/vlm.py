@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -19,7 +20,32 @@ class VLMClient:
         self.failures = 0
         self._lock = Lock()
 
+    def _cache_path(self, images, prompt, schema, max_tokens):
+        """Disk cache for experiments (VLM_CACHE_DIR). Answers are deterministic (temperature 0),
+        so re-running rules/thresholds needs no GPU. Never set in production."""
+        root = os.getenv("VLM_CACHE_DIR")
+        if not root:
+            return None
+        ids = [im.info.get("src") or hashlib.sha1(im.tobytes()).hexdigest() for im in images]
+        key = json.dumps([self.model, prompt, schema, max_tokens, ids], sort_keys=True, ensure_ascii=False)
+        return os.path.join(root, hashlib.sha256(key.encode()).hexdigest() + ".json")
+
     def ask_json(self, images, prompt: str, schema: dict, max_tokens: int = 400) -> dict | None:
+        cache = self._cache_path(images, prompt, schema, max_tokens)
+        if cache and os.path.exists(cache):
+            with open(cache, encoding="utf-8") as f:
+                return json.load(f)
+        if cache and os.getenv("VLM_CACHE_ONLY") == "1":
+            return None  # offline replay: a cache miss behaves like an unavailable VLM
+        answer = self._ask(images, prompt, schema, max_tokens)
+        if cache and answer is not None:
+            os.makedirs(os.path.dirname(cache), exist_ok=True)
+            with open(cache + ".tmp", "w", encoding="utf-8") as f:
+                json.dump(answer, f, ensure_ascii=False)
+            os.replace(cache + ".tmp", cache)
+        return answer
+
+    def _ask(self, images, prompt: str, schema: dict, max_tokens: int) -> dict | None:
         content = [{"type": "image_url",
                     "image_url": {"url": f"data:image/jpeg;base64,{to_jpeg_b64(im)}"}} for im in images]
         content.append({"type": "text", "text": prompt})
