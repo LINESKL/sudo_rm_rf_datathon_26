@@ -67,7 +67,7 @@ def run(args, report):
         with args.video.open("rb") as source:
             response = client.post("/api/v1/analyze", headers=headers,
                                    files={"file": (args.video.name, source)}, timeout=args.timeout)
-        check(response.status_code == 202 and set(response.json()) == {"job_id"}, "Upload must return 202 and job_id only")
+        check(response.status_code == 200 and set(response.json()) == {"job_id"}, "Upload must return 200 and job_id only")
         job_id = response.json()["job_id"]
         report["job_id"] = job_id
         while time.monotonic() < deadline:
