@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -69,13 +70,44 @@ class VLMClient:
                                  timeout=self.timeout, allow_redirects=False)
                 if r.status_code != 200:
                     raise requests.RequestException(f"VLM returned HTTP {r.status_code}")
-                answer = json.loads(r.json()["choices"][0]["message"]["content"])
+                text = r.json()["choices"][0]["message"]["content"]
+            try:
+                answer = json.loads(text)
+            except ValueError:
+                answer = salvage(text, schema)  # cut at max_tokens inside the free-text field
+                if answer is None:
+                    raise
             Draft202012Validator(schema).validate(answer)
             return answer
         except (requests.RequestException, ValueError, KeyError, IndexError, TypeError, ValidationError):
             with self._lock:
                 self.failures += 1
             return None
+
+
+def salvage(text: str, schema: dict) -> dict | None:
+    """Read flags/enums/numbers from JSON cut at max_tokens (free text comes last and gets cut).
+    Free-text fields become "". Returns None if any other required field is missing."""
+    out = {}
+    for key, spec in schema.get("properties", {}).items():
+        kind = spec.get("type")
+        if kind == "boolean":
+            m = re.search(rf'"{key}"\s*:\s*(true|false)', text)
+            value = None if m is None else m.group(1) == "true"
+        elif kind == "integer":
+            m = re.search(rf'"{key}"\s*:\s*(-?\d+)', text)
+            value = None if m is None else int(m.group(1))
+        elif kind == "string" and "enum" in spec:
+            m = re.search(rf'"{key}"\s*:\s*"([^"]*)"', text)
+            value = m.group(1) if m and m.group(1) in spec["enum"] else None
+        elif kind == "string":
+            value = ""
+        else:
+            value = None
+        if value is not None:
+            out[key] = value
+    found = any(v != "" for v in out.values())  # garbage with no recognisable field is not an answer
+    return out if found and set(schema.get("required", [])) <= set(out) else None
 
 
 def map_parallel(fn, items, workers: int = 8) -> list:

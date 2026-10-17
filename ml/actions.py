@@ -24,9 +24,8 @@ FIELDS = {
     "client_hands_cash": "a client hands banknotes to the cashier",
     "cash_given_to_client": "the cashier hands banknotes to a client or a client takes cash from the desk",
 }
-# "what" is capped: an uncapped description hit max_tokens and cut the JSON (6 of 12 windows on X-1).
-SCHEMA = {"type": "object", "properties": {**{k: {"type": "boolean"} for k in FIELDS},
-                                           "what": {"type": "string", "maxLength": 160}},
+# "what" may run past max_tokens; ml.vlm.salvage still reads the flags written before it.
+SCHEMA = {"type": "object", "properties": {**{k: {"type": "boolean"} for k in FIELDS}, "what": {"type": "string"}},
           "required": [*FIELDS, "what"]}
 PROMPT = ("Four frames in time order ({times}) from overhead CCTV of a bank cashier room. The cashier sits at the desk in front of the "
           "laptop; clients and couriers come to the opposite side of the desk. For each item answer true only if it happens in THESE frames:\n"

@@ -74,12 +74,12 @@ def test_sensor_gets_at_most_90_s_of_a_240_s_budget():
     assert sensor_stop(0.0, 100.0) == 37.5  # short budgets keep the same share
 
 
-def test_free_text_fields_are_capped_so_json_is_not_cut_off():
-    # an uncapped description ran into max_tokens and broke the JSON (6 of 12 windows on X-1)
+def test_free_text_fields_are_not_length_capped():
+    # maxLength made vLLM structured decoding crawl (6-8 tok/s, GPU idle); cut JSON is salvaged instead
     from ml.actions import SCHEMA
     from ml.verify import VERIFY_SCHEMA
-    assert SCHEMA["properties"]["what"]["maxLength"] <= 160
-    assert VERIFY_SCHEMA["properties"]["what_is_visible"]["maxLength"] <= 240
+    assert "maxLength" not in SCHEMA["properties"]["what"]
+    assert "maxLength" not in VERIFY_SCHEMA["properties"]["what_is_visible"]
 
 
 def test_rare_vlm_failures_do_not_mark_the_result_degraded():

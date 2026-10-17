@@ -87,3 +87,13 @@ def test_cache_survives_concurrent_identical_requests(monkeypatch, tmp_path):
     with ThreadPoolExecutor(8) as ex:
         results = list(ex.map(lambda _: c.ask_json([img], "q", {}), range(8)))
     assert results == [{"ok": 1}] * 8
+
+
+def test_salvage_reads_flags_from_json_cut_by_max_tokens():
+    from ml.vlm import salvage
+    schema = {"type": "object", "properties": {"door": {"type": "boolean"}, "screen": {"type": "string", "enum": ["a", "b"]},
+                                               "n": {"type": "integer"}, "what": {"type": "string"}},
+              "required": ["door", "screen", "n", "what"]}
+    cut = '{\n  "door": true,\n  "screen": "b",\n  "n": 3,\n  "what": "The cashier is sitting and the man walks to'
+    assert salvage(cut, schema) == {"door": True, "screen": "b", "n": 3, "what": ""}
+    assert salvage('{"door": tr', schema) is None  # a required flag is missing: no guessing
