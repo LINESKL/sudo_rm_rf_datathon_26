@@ -233,7 +233,7 @@ describe('ResultView', () => {
     render(<ResultView result={result(violations)} onReset={vi.fn()} serviceMode="pipeline" />)
     fireEvent.error(screen.getByAltText('Кадр-доказательство на 8.625 с'))
     expect(screen.getByText('Кадр недоступен. Проверьте исходную запись.')).toBeVisible()
-    expect(screen.getAllByRole('img')).toHaveLength(3)
+    expect(screen.getAllByAltText(/^Кадр-доказательство/)).toHaveLength(3)
     for (const violation of violations) {
       expect(screen.getByRole('heading', { name: violation.type })).toBeVisible()
       expect(screen.getByText(violation.observed)).toBeVisible()
@@ -597,5 +597,45 @@ describe('ResultView event navigation', () => {
     expect(video.currentTime).toBe(3)
     await user.click(screen.getByRole('button', { name: 'Предыдущее событие' }))
     expect(video.currentTime).toBe(11)
+  })
+})
+
+describe('ResultView evidence gallery', () => {
+  it('shows one large frame and switches it from thumbnails', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    const jpeg = sampleDetails.violations[0].evidence_frames[0].image_base64
+    render(
+      <ResultView
+        result={result([
+          event(0, {
+            evidence_frames: [
+              { timestamp_sec: 8.6, image_base64: jpeg },
+              { timestamp_sec: 12, image_base64: jpeg },
+              { timestamp_sec: 18, image_base64: jpeg },
+            ],
+          }),
+        ])}
+        onReset={vi.fn()}
+        serviceMode="pipeline"
+      />,
+    )
+    const video = screen.getByLabelText<HTMLVideoElement>('Плеер загруженного видео')
+    Object.defineProperty(video, 'readyState', { configurable: true, value: 1 })
+    expect(screen.getAllByAltText(/^Кадр-доказательство на/)).toHaveLength(1)
+    const second = screen.getByRole('button', { name: 'Показать кадр 2 из 3' })
+    expect(second).toHaveAttribute('aria-pressed', 'false')
+    await user.click(second)
+    expect(second).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByAltText('Кадр-доказательство на 12 с')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Увеличить кадр 2 события 1, 12 с' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Показать кадр 2 события 1 в видео' }))
+    expect(video.currentTime).toBe(11)
+  })
+
+  it('names the normative block plainly and shows confidence as a three-step scale', () => {
+    render(<ResultView result={result([event()])} onReset={vi.fn()} serviceMode="pipeline" />)
+    expect(screen.getByRole('heading', { name: 'Норматив' })).toBeVisible()
+    expect(screen.getByRole('img', { name: 'Уверенность 3 из 3' })).toBeVisible()
   })
 })

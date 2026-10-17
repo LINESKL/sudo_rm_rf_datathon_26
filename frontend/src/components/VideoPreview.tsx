@@ -184,7 +184,10 @@ export const VideoPreview = forwardRef<VideoPreviewHandle, Props>(function Video
         />
       )}
       {(!media.url || mediaError) && (
-        <Alert variant="destructive" className="rounded-xl">
+        <Alert
+          variant={mediaError ? 'destructive' : 'default'}
+          className={`rounded-xl ${mediaError ? '' : 'border-0 bg-muted'}`}
+        >
           <CircleAlert />
           <AlertTitle>Видеопревью недоступно</AlertTitle>
           <AlertDescription>
@@ -198,8 +201,8 @@ export const VideoPreview = forwardRef<VideoPreviewHandle, Props>(function Video
         </p>
         <Button
           type="button"
-          variant="outline"
-          className="min-h-11 whitespace-normal rounded-xl"
+          variant={mediaError ? 'outline' : 'ghost'}
+          className={`min-h-10 whitespace-normal rounded-xl ${mediaError ? '' : 'text-muted-foreground'}`}
           disabled={refreshing}
           onClick={() => void refreshPreview()}
         >

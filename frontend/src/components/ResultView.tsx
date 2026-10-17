@@ -106,7 +106,53 @@ function EvidencePreview({
   )
 }
 
+// Один крупный кадр и миниатюры: проверяющий листает доказательства, не теряя деталей.
+function EvidenceGallery({
+  frames,
+  eventIndex,
+  canSeek,
+  onShow,
+}: {
+  frames: EvidenceFrame[]
+  eventIndex: number
+  canSeek: boolean
+  onShow: (seconds: number) => void
+}) {
+  const [current, setCurrent] = useState(0)
+  const frame = frames[Math.min(current, frames.length - 1)]
+  if (!frame) return null
+  return (
+    <div className="evidence-gallery">
+      <EvidencePreview
+        key={current}
+        frame={frame}
+        eventIndex={eventIndex}
+        frameIndex={current}
+        canSeek={canSeek}
+        onShow={() => onShow(frame.timestamp_sec)}
+      />
+      {frames.length > 1 && (
+        <div className="evidence-thumbs">
+          {frames.map((item, index) => (
+            <button
+              key={`${index}:${item.timestamp_sec}`}
+              type="button"
+              className="evidence-thumb"
+              aria-label={`Показать кадр ${index + 1} из ${frames.length}`}
+              aria-pressed={index === current}
+              onClick={() => setCurrent(index)}
+            >
+              <img src={`data:image/jpeg;base64,${item.image_base64}`} alt="" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const confidenceLabels = { low: 'низкая', medium: 'средняя', high: 'высокая' }
+const confidenceSteps = { low: 1, medium: 2, high: 3 }
 
 export function ResultView({
   result,
@@ -345,63 +391,71 @@ export function ResultView({
                 <Badge className="rounded-full bg-accent text-primary">Текущий фрагмент</Badge>
               )}
               <Badge variant="secondary" className="rounded-full">
+                <span
+                  className="confidence-scale"
+                  role="img"
+                  aria-label={`Уверенность ${confidenceSteps[violation.confidence_level]} из 3`}
+                >
+                  {[1, 2, 3].map((step) => (
+                    <i
+                      key={step}
+                      data-filled={step <= confidenceSteps[violation.confidence_level] || undefined}
+                    />
+                  ))}
+                </span>
                 Уверенность: {confidenceLabels[violation.confidence_level]}
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-5 px-5">
-            <div className="evidence-grid">
-              {violation.evidence_frames.map((frame, frameIndex) => (
-                <EvidencePreview
-                  key={`${frameIndex}:${frame.timestamp_sec}`}
-                  frame={frame}
-                  eventIndex={index}
-                  frameIndex={frameIndex}
-                  canSeek={canSeek}
-                  onShow={() => seek(index, frame.timestamp_sec)}
-                />
-              ))}
-            </div>
-            <dl className="event-explanation">
-              <div>
-                <dt>Что видно</dt>
-                <dd>{violation.observed}</dd>
+          <CardContent className="event-body px-5">
+            <EvidenceGallery
+              frames={violation.evidence_frames}
+              eventIndex={index}
+              canSeek={canSeek}
+              onShow={(seconds) => seek(index, seconds)}
+            />
+            <div className="event-text">
+              <dl className="event-explanation">
+                <div>
+                  <dt>Что видно</dt>
+                  <dd>{violation.observed}</dd>
+                </div>
+                <div>
+                  <dt>Почему это может быть нарушением</dt>
+                  <dd>{violation.why}</dd>
+                </div>
+              </dl>
+              <div className="event-rule">
+                <h5>Норматив</h5>
+                {violation.rule ? (
+                  <>
+                    <p>{violation.rule.document}</p>
+                    {violation.rule.point && (
+                      <p className="text-muted-foreground">{violation.rule.point}</p>
+                    )}
+                    {violation.rule.quote && (
+                      <details className="rule-quote">
+                        <summary>Фрагмент документа</summary>
+                        <blockquote>{violation.rule.quote}</blockquote>
+                      </details>
+                    )}
+                    <a
+                      className="source-link"
+                      aria-label={`Открыть источник: ${violation.rule.document}`}
+                      href={violation.rule.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Открыть источник <ExternalLink size={14} aria-hidden="true" />
+                    </a>
+                  </>
+                ) : (
+                  <p className="rule-missing">
+                    <CircleAlert size={16} aria-hidden="true" />
+                    Норматив не определён, требуется проверка.
+                  </p>
+                )}
               </div>
-              <div>
-                <dt>Почему это может быть нарушением</dt>
-                <dd>{violation.why}</dd>
-              </div>
-            </dl>
-            <div className="event-rule">
-              <h5>Нормативный источник</h5>
-              {violation.rule ? (
-                <>
-                  <p>{violation.rule.document}</p>
-                  {violation.rule.point && (
-                    <p className="text-muted-foreground">{violation.rule.point}</p>
-                  )}
-                  {violation.rule.quote && (
-                    <details className="rule-quote">
-                      <summary>Фрагмент документа</summary>
-                      <blockquote>{violation.rule.quote}</blockquote>
-                    </details>
-                  )}
-                  <a
-                    className="source-link"
-                    aria-label={`Открыть источник: ${violation.rule.document}`}
-                    href={violation.rule.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Открыть источник <ExternalLink size={14} aria-hidden="true" />
-                  </a>
-                </>
-              ) : (
-                <p className="rule-missing">
-                  <CircleAlert size={16} aria-hidden="true" />
-                  Норматив не определён, требуется проверка.
-                </p>
-              )}
             </div>
           </CardContent>
         </Card>
