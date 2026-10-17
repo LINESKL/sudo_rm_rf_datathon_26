@@ -34,3 +34,28 @@ def settings(tmp_path, binaries):
     return Settings(api_key="test-secret", data_dir=tmp_path / "data",
                     frontend_dir=tmp_path / "frontend", ffmpeg=binaries[0], ffprobe=binaries[1],
                     analyzer="tests.analyzers:clean", job_timeout_s=20)
+
+@pytest.fixture
+def tiny_video(tmp_path, binaries, monkeypatch) -> Path:
+    monkeypatch.setenv("FFMPEG_BIN", binaries[0])
+    monkeypatch.setenv("FFPROBE_BIN", binaries[1])
+    out = tmp_path / "tiny.mov"
+    subprocess.run([binaries[0], "-v", "error", "-y", "-f", "lavfi", "-i",
+                    "testsrc=size=464x848:rate=30:duration=8", "-pix_fmt", "yuv420p",
+                    str(out)], check=True, timeout=30)
+    return out
+
+
+class FakeVLM:
+    def __init__(self, responder):
+        self.responder = responder
+        self.calls = 0
+
+    def ask_json(self, images, prompt, schema, max_tokens=400):
+        self.calls += 1
+        return self.responder(images, prompt)
+
+
+@pytest.fixture
+def fake_vlm_cls():
+    return FakeVLM

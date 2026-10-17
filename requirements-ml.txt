@@ -1,0 +1,6 @@
+numpy>=1.26
+pillow>=10.0
+requests>=2.31
+pyyaml>=6.0
+jsonschema>=4.23
+openpyxl>=3.1

@@ -11,8 +11,9 @@ GPU-основа: `vllm/vllm-openai:v0.31.0-cu129`, зафиксированна
 
 Зависимости API устанавливаются в отдельное окружение `/opt/backend`,
 чтобы не менять зависимости сервера vLLM. Оно видит системные torch/ML-пакеты;
-Если после интеграции ветки `ml` есть `requirements-ml.txt`, Dockerfile устанавливает
-его в backend-окружение с ограничениями версий API из `requirements.txt`.
+`requirements-ml.txt` устанавливается в backend-окружение GPU-образа
+с ограничениями версий API из `requirements.txt`. CPU-цель `stub` устанавливает
+только зависимости API; импорт заглушки не загружает зависимости реального ML.
 
 ```bash
 docker build --target gpu -t YOUR_REGISTRY/cashguard:datathon .
@@ -23,8 +24,8 @@ docker run -d --name cashguard --restart unless-stopped --gpus all \
   -v /absolute/workspace:/workspace YOUR_REGISTRY/cashguard:datathon
 ```
 
-Сначала интегрируйте ветку `ml` вместе с её `requirements-ml.txt`
-и добавьте сборку `frontend/dist`.
+Код `ml` уже подключён. Перед финальной сборкой добавьте `frontend/dist`,
+подготовьте веса и выполните реальную GPU-приёмку (см. `docs/ml-integration.md`).
 Для проверки инфраструктуры используйте `ANALYZER=ml.stub:analyze`.
 `start.sh` требует `API_KEY`, запускает vLLM на `127.0.0.1:8001`, ждёт `/health`,
 затем запускает один uvicorn на 8000. Порт 8001 не публикуется.

@@ -45,6 +45,9 @@ def main():
                            details=result.to_details(args.job_id, preview_url))
         if result.jury.job_id != args.job_id or result.details.preview_url != preview_url:
             raise ValueError("Analyzer serializers changed the job identity or preview URL")
+        # The jury projection cannot represent incomplete analysis.
+        if result.details.degraded:
+            raise RuntimeError("ML analysis is degraded: incomplete inference or exhausted stage budget")
         output = Path(args.result)
         temporary = output.with_suffix(".tmp")
         temporary.write_text(result.model_dump_json(exclude_unset=True), encoding="utf-8")

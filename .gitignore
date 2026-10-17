@@ -32,3 +32,5 @@ backend/data/
 test-results/
 frontend/dist/
 *.egg-info/
+.superpowers/
+runs/

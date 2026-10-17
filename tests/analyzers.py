@@ -53,7 +53,7 @@ def ml_contract(video_path, *, deadline_s, on_progress):
             return {"job_id": job_id, "status": "done", "verdict": "no_violation", "violations": [],
                     "progress": {"stage": "done", "value": 1}, "duration_sec": 1.0,
                     "processing_sec": .125, "rules_checked": 13, "preview_url": preview_url,
-                    "degraded": True, "timeline": {"bag_on_desk": [[0, 1]]},
+                    "degraded": False, "timeline": {"bag_on_desk": [[0, 1]]},
                     "timeline_labels": {"bag_on_desk": "Сумка инкассации на столе"}}
 
     return Result()
