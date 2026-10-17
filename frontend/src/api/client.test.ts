@@ -544,7 +544,6 @@ describe('getServiceHealth', () => {
   })
 })
 
-
 describe('uploadVideo stall watchdog', () => {
   it('fails with a timeout only after 60 s without upload progress', async () => {
     vi.useFakeTimers()

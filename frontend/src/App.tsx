@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { DragEvent, FormEvent } from 'react'
 import {
@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { FALLBACK_STAGES } from './api/contracts'
-import { getServiceHealth, validateVideo } from './api/client'
+import { ApiError, getServiceHealth, validateVideo } from './api/client'
 import { ResultView } from './components/ResultView'
 import { useAnalysis } from './useAnalysis'
 
@@ -74,13 +74,21 @@ function AnalysisProgress({ value, label }: { value: number; label: string }) {
 
 export function App() {
   const [file, setFile] = useState<File | null>(null)
-  const [validation, setValidation] = useState<string | null>(null)
+  const [validation, setValidation] = useState<{
+    field: 'file' | 'key'
+    message: string
+  } | null>(null)
   const [apiKey, setApiKey] = useState(readKey)
   const [keyOpen, setKeyOpen] = useState(() => !readKey())
   const [keyVisible, setKeyVisible] = useState(false)
   const [storageNotice, setStorageNotice] = useState(false)
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const keyInputRef = useRef<HTMLInputElement>(null)
+  const chooserRef = useRef<HTMLButtonElement>(null)
+  const panelHeadingRef = useRef<HTMLHeadingElement>(null)
+  const errorRef = useRef<HTMLDivElement>(null)
+  const focusKeyOnOpen = useRef(false)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const analysis = useAnalysis()
   const health = useQuery({
@@ -107,11 +115,54 @@ export function App() {
   const progress =
     analysis.details?.status === 'processing' ? analysis.details.progress.value * 100 : 0
   const step = result ? 2 : processing ? 1 : 0
+  const phase = analysis.uploading
+    ? 'uploading'
+    : processing
+      ? 'processing'
+      : result
+        ? 'result'
+        : analysis.error
+          ? 'error'
+          : 'upload'
+  const previousPhase = useRef(phase)
+  const errorStatus = analysis.error instanceof ApiError ? analysis.error.status : null
+  const serverErrorField =
+    errorStatus === 401 ? 'key' : errorStatus === 400 || errorStatus === 413 ? 'file' : null
+  const errorField = validation?.field ?? serverErrorField
+  const keyInvalid = errorField === 'key'
+  const fileInvalid = errorField === 'file'
+
+  useEffect(() => {
+    if (previousPhase.current === phase) return
+    previousPhase.current = phase
+    if (phase === 'error') errorRef.current?.focus()
+    else if (phase !== 'upload') panelHeadingRef.current?.focus()
+  }, [phase])
+
+  useEffect(() => {
+    if (keyOpen && focusKeyOnOpen.current) {
+      keyInputRef.current?.focus()
+      focusKeyOnOpen.current = false
+    }
+  }, [keyOpen])
+
+  useEffect(() => {
+    if (validation?.field === 'file') chooserRef.current?.focus()
+  }, [validation])
+
+  function showKey() {
+    focusKeyOnOpen.current = true
+    setKeyOpen(true)
+    if (keyInputRef.current) {
+      keyInputRef.current.focus()
+      focusKeyOnOpen.current = false
+    }
+  }
 
   function selectFile(candidate?: File) {
     if (!candidate || analysis.busy) return
     const message = validateVideo(candidate)
-    setValidation(message)
+    setValidation(message ? { field: 'file', message } : null)
     if (!message) {
       analysis.reset()
       setFile(candidate)
@@ -122,7 +173,10 @@ export function App() {
     event.preventDefault()
     setDragging(false)
     if (event.dataTransfer.files.length > 1) {
-      setValidation('Выберите одно видео. Следующую запись можно проверить после этой.')
+      setValidation({
+        field: 'file',
+        message: 'Выберите одно видео. Следующую запись можно проверить после этой.',
+      })
       return
     }
     selectFile(event.dataTransfer.files[0])
@@ -131,16 +185,16 @@ export function App() {
   function submit(event: FormEvent) {
     event.preventDefault()
     if (!file) {
-      setValidation('Выберите видео для проверки.')
+      setValidation({ field: 'file', message: 'Выберите видео для проверки.' })
       return
     }
     if (!apiKey.trim()) {
-      setValidation('Укажите API-ключ для доступа к проверке.')
-      setKeyOpen(true)
+      setValidation({ field: 'key', message: 'Укажите API-ключ для доступа к проверке.' })
+      showKey()
       return
     }
     const message = validateVideo(file)
-    setValidation(message)
+    setValidation(message ? { field: 'file', message } : null)
     if (message) return
     try {
       localStorage.setItem(STORAGE_KEY, apiKey.trim())
@@ -232,7 +286,7 @@ export function App() {
               <span className="section-number mono">0{step + 1}</span>
               <div>
                 <CardTitle>
-                  <h2>
+                  <h2 tabIndex={-1} ref={panelHeadingRef}>
                     {result
                       ? 'Проверка завершена'
                       : processing
@@ -279,9 +333,12 @@ export function App() {
                             <p className="selected-name">{file.name}</p>
                             <p className="drop-hint">{fileSize(file.size)} · Готово к отправке</p>
                             <Button
+                              ref={chooserRef}
                               type="button"
                               variant="link"
-                              className="mt-3.5 h-auto p-0 text-brand underline"
+                              className="mt-3.5 min-h-11 whitespace-normal px-2 text-brand underline"
+                              aria-invalid={fileInvalid || undefined}
+                              aria-describedby={fileInvalid ? 'form-error-message' : undefined}
                               onClick={() => inputRef.current?.click()}
                             >
                               Выбрать другое видео
@@ -295,14 +352,17 @@ export function App() {
                             <h3>Перетащите видео сюда</h3>
                             <p className="drop-hint">или выберите файл на устройстве</p>
                             <Button
+                              ref={chooserRef}
                               variant="outline"
                               className="mt-4 h-11 rounded-xl px-5 text-primary has-[>svg]:px-5"
                               type="button"
+                              aria-invalid={fileInvalid || undefined}
+                              aria-describedby={fileInvalid ? 'form-error-message' : 'file-help'}
                               onClick={() => inputRef.current?.click()}
                             >
                               <FileVideo size={17} /> Выбрать видео
                             </Button>
-                            <span className="file-requirements">
+                            <span id="file-help" className="file-requirements">
                               MOV или MP4 <span>·</span> до 200 МБ
                             </span>
                           </>
@@ -313,6 +373,8 @@ export function App() {
                           type="file"
                           accept=".mov,.mp4,video/quicktime,video/mp4"
                           aria-label="Видео для проверки"
+                          aria-invalid={fileInvalid || undefined}
+                          aria-describedby={fileInvalid ? 'form-error-message' : undefined}
                           tabIndex={-1}
                           onChange={(event) => {
                             selectFile(event.target.files?.[0])
@@ -398,7 +460,7 @@ export function App() {
                       <Button
                         type="button"
                         variant="link"
-                        className="h-auto p-0 text-muted-foreground underline has-[>svg]:px-0"
+                        className="min-h-11 whitespace-normal px-2 text-muted-foreground underline has-[>svg]:px-2"
                         onClick={newVideo}
                       >
                         <X size={15} />{' '}
@@ -439,6 +501,7 @@ export function App() {
                           </Label>
                           <div className="key-input-wrap">
                             <Input
+                              ref={keyInputRef}
                               className="h-12 rounded-xl pr-12"
                               id="api-key"
                               name="apiKey"
@@ -446,9 +509,15 @@ export function App() {
                               autoComplete="off"
                               spellCheck={false}
                               value={apiKey}
-                              onChange={(event) => setApiKey(event.target.value)}
+                              onChange={(event) => {
+                                setApiKey(event.target.value)
+                                if (validation?.field === 'key') setValidation(null)
+                              }}
                               placeholder="Введите ключ доступа"
-                              aria-describedby="key-help"
+                              aria-invalid={keyInvalid || undefined}
+                              aria-describedby={
+                                keyInvalid ? 'key-help form-error-message' : 'key-help'
+                              }
                             />
                             <Button
                               variant="ghost"
@@ -477,13 +546,19 @@ export function App() {
                       )}
                       {(validation || analysis.error) && (
                         <Alert
+                          ref={errorRef}
+                          tabIndex={-1}
+                          aria-labelledby="form-error-title"
+                          aria-describedby="form-error-message"
                           variant="destructive"
                           className="mb-5 rounded-xl bg-[var(--violation-bg)]"
                         >
                           <CircleAlert size={19} />
-                          <AlertTitle>Не удалось продолжить</AlertTitle>
+                          <AlertTitle id="form-error-title">Не удалось продолжить</AlertTitle>
                           <AlertDescription>
-                            <p>{validation ?? analysis.error?.message}</p>
+                            <p id="form-error-message">
+                              {validation?.message ?? analysis.error?.message}
+                            </p>
                             {analysis.error && analysis.job && (
                               <p className="mono" role="timer" aria-live="off">
                                 Прошло с начала отправки: {elapsedTime(analysis.elapsedSeconds)}
@@ -493,8 +568,8 @@ export function App() {
                               <Button
                                 type="button"
                                 variant="link"
-                                className="h-auto p-0 text-brand underline"
-                                onClick={() => setKeyOpen(true)}
+                                className="min-h-11 whitespace-normal px-2 text-brand underline"
+                                onClick={showKey}
                               >
                                 Проверить ключ доступа
                               </Button>
