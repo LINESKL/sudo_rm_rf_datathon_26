@@ -9,11 +9,11 @@ sed "s|^ONLY = .*|ONLY = os.environ.get(\"ONLY\", \"$ONLY\")|" tools/kaggle/kern
 cat > "$K/kernel-metadata.json" <<JSON
 {"id": "$KUSER/cashguard-eval", "title": "cashguard-eval", "code_file": "run.py",
  "language": "python", "kernel_type": "script", "is_private": true,
- "enable_gpu": true, "enable_internet": true,
+ "enable_gpu": true, "enable_internet": true, "machine_shape": "NvidiaTeslaT4",
  "dataset_sources": ["$KUSER/cashguard-code", "$KUSER/cashguard-videos"]}
 JSON
 sleep 30  # дать датасету кода обработаться
-kaggle kernels push -p "$K" ${KAGGLE_ACCEL_FLAG:-}
+kaggle kernels push -p "$K" --accelerator NvidiaTeslaT4
 while true; do
   S=$(kaggle kernels status "$KUSER/cashguard-eval" 2>&1 || true); echo "$S"
   case "$S" in *complete*|*COMPLETE*|*error*|*ERROR*|*cancel*|*CANCEL*) break;; esac
