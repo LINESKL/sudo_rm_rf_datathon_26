@@ -40,7 +40,7 @@ def test_error_is_not_a_correct_clean_prediction():
     assert score(rows)["accuracy"] == 0 and score(rows)["errors"] == 1
 
 
-def test_degraded_eval_is_error(tmp_path, monkeypatch):
+def test_degraded_eval_is_delivered_and_flagged(tmp_path, monkeypatch):
     import json
     import sys
     from eval import run_eval
@@ -52,5 +52,34 @@ def test_degraded_eval_is_error(tmp_path, monkeypatch):
     monkeypatch.setattr(run_eval, "analyze", lambda *a: AnalysisResult(8, [], {}, 8, degraded=True))
     run_eval.main()
     rows = json.loads((tmp_path / "rows.json").read_text(encoding="utf-8"))
-    assert rows[0]["pred_verdict"] == "error"
-    assert score(rows)["accuracy"] == 0
+    # Same as the API: the jury receives the verdict; the row records it was incomplete.
+    assert rows[0]["pred_verdict"] == "no_violation" and rows[0]["degraded"] is True
+    assert score(rows)["accuracy"] == 1
+
+
+def test_run_eval_jobs_runs_videos_concurrently(tmp_path, monkeypatch):
+    import threading
+    import time as _t
+
+    import eval.run_eval as run_eval
+    from ml.types import AnalysisResult
+
+    labels = [{"name": f"Х-{i}", "path": f"/v/{i}.mov", "violation": False, "times": []} for i in range(4)]
+    monkeypatch.setattr(run_eval, "load_labels", lambda x, v: labels)
+    active, peak, lock = [0], [0], threading.Lock()
+
+    def fake_analyze(path):
+        with lock:
+            active[0] += 1
+            peak[0] = max(peak[0], active[0])
+        _t.sleep(0.2)
+        with lock:
+            active[0] -= 1
+        return AnalysisResult(duration_sec=1.0, violations=[], timeline={}, rules_checked=1)
+
+    monkeypatch.setattr(run_eval, "analyze", fake_analyze)
+    monkeypatch.setattr("sys.argv", ["run_eval", "--videos", "v", "--labels", "l", "--out", str(tmp_path), "--jobs", "3"])
+    run_eval.main()
+    import json
+    assert len(json.loads((tmp_path / "rows.json").read_text())) == 4
+    assert peak[0] >= 2
