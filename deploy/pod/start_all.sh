@@ -17,7 +17,7 @@ command -v uv >/dev/null || pip install -q --break-system-packages uv
 
 if ! curl -sf 127.0.0.1:8011/v1/models >/dev/null; then
   tmux kill-session -t vllm 2>/dev/null
-  tmux new -d -s vllm "/root/vv/bin/vllm serve $MODEL --host 127.0.0.1 --port 8011 --max-model-len ${MAX_LEN:-32768} --max-num-seqs 16 --limit-mm-per-prompt '{\"image\": 8, \"video\": 1}' --gpu-memory-utilization 0.90 --mm-processor-kwargs '{\"max_pixels\": 401408}' 2>&1 | tee /workspace/vllm.log"
+  tmux new -d -s vllm "/root/vv/bin/vllm serve $MODEL --host 127.0.0.1 --port 8011 --max-model-len ${MAX_LEN:-32768} --max-num-seqs ${MAX_SEQS:-48} --limit-mm-per-prompt '{\"image\": 8, \"video\": 1}' --gpu-memory-utilization 0.90 --mm-processor-kwargs '{\"max_pixels\": 401408}' 2>&1 | tee /workspace/vllm.log"
   for i in $(seq 1 90); do
     curl -sf 127.0.0.1:8011/v1/models >/dev/null && break
     tmux has -t vllm 2>/dev/null || { echo "vLLM DIED"; tail -5 /workspace/vllm.log; exit 1; }

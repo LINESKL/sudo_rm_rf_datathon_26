@@ -16,25 +16,23 @@ MIN_CONFIDENCE = 0.5  # открытый проход без подтвержд�
 
 STAGE_HOOKS: list = []  # (cands, scene, client, video_path, time_left) -> cands
 
+from ml.actions import actions_hook  # noqa: E402
+from ml.outsider import outsider_hook  # noqa: E402
+from ml.screen import screen_hook  # noqa: E402
 from ml.verify import verify  # noqa: E402
 
-STAGE_HOOKS.append(verify)
+# Order = value per GPU second: under load the later hooks are skipped by the deadline.
+# verify (few calls) -> door/counting actions (most finds) -> zoomed screen/desk -> outsider windows (fewest).
+STAGE_HOOKS.extend([verify, actions_hook, screen_hook, outsider_hook])
 
 # ponytail: procedure windows (ml/procedures.py) are off — 0 finds on 40 videos, a third of the GPU load.
-
-from ml.outsider import outsider_hook  # noqa: E402
-
-STAGE_HOOKS.append(outsider_hook)
-
-from ml.screen import screen_hook  # noqa: E402
-
-STAGE_HOOKS.append(screen_hook)  # after verify: the zoomed screen class is the check
-
-from ml.actions import actions_hook  # noqa: E402
-
-STAGE_HOOKS.append(actions_hook)  # door left open, counting by hand without the machine
-
 # ponytail: open pass (ml/open_pass.py) is off — on 32 videos it produced only false positives.
+
+
+def sensor_stop(started: float, deadline_s: float) -> float:
+    """The frame sensor gets 37.5 % of the budget (90 of 240 s): idle it needs 20–40 s,
+    under load the window checks after it need the rest."""
+    return started + deadline_s * 0.375
 
 
 def _evidence_times(c: Candidate, duration: float) -> list[float]:
@@ -75,8 +73,7 @@ def analyze(video_path, deadline_s: float = 240.0, on_progress=None, client=None
 
     progress("detect", 0.2)
     progress("scene", 0.3)
-    # The sensor gets at most half the budget (or all but 90 s): the zoom/window checks need the rest.
-    samples = sense(client, frames, workers=workers, stop_at=started + max(deadline_s * 0.5, deadline_s - 90))
+    samples = sense(client, frames, workers=workers, stop_at=sensor_stop(started, deadline_s))
     if frames and not samples:
         raise RuntimeError("VLM unavailable: no frame could be analysed (degraded)")
     degraded = not samples or len(samples) != len(frames)

@@ -56,3 +56,19 @@ def test_procedure_windows_not_in_default_stages():
     from ml.pipeline import STAGE_HOOKS
     from ml.procedures import procedures_hook
     assert procedures_hook not in STAGE_HOOKS
+
+
+def test_hooks_run_in_order_of_value_under_a_deadline():
+    # under load later hooks are skipped; the action checks bring most finds, the outsider windows the fewest
+    from ml.actions import actions_hook
+    from ml.outsider import outsider_hook
+    from ml.pipeline import STAGE_HOOKS
+    from ml.screen import screen_hook
+    from ml.verify import verify
+    assert STAGE_HOOKS == [verify, actions_hook, screen_hook, outsider_hook]
+
+
+def test_sensor_gets_at_most_90_s_of_a_240_s_budget():
+    from ml.pipeline import sensor_stop
+    assert sensor_stop(0.0, 240.0) == 90.0
+    assert sensor_stop(0.0, 100.0) == 37.5  # short budgets keep the same share
