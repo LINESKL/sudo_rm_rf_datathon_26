@@ -5,7 +5,7 @@ def _leaving_vlm(fake_vlm_cls):
     calls = {"n": 0}
     def by_order(imgs, prompt):
         calls["n"] += 1
-        return _st() if calls["n"] <= 4 else _st(cashier_present=False)
+        return _st() if calls["n"] <= 4 else _st(cashier_present=False, cashier_at_workplace=False)
     return fake_vlm_cls(by_order)
 
 def test_analyze_detects_unlocked_leave(tiny_video, fake_vlm_cls):
@@ -26,3 +26,9 @@ def test_analyze_clean(tiny_video, fake_vlm_cls):
 def test_analyze_vlm_down_is_degraded(tiny_video, fake_vlm_cls):
     r = analyze(tiny_video, client=fake_vlm_cls(lambda i, p: None), workers=1)
     assert r.verdict == "no_violation" and r.degraded
+
+
+def test_min_confidence_filters(tiny_video, fake_vlm_cls, monkeypatch):
+    import ml.pipeline as p
+    monkeypatch.setattr(p, "MIN_CONFIDENCE", 0.99)
+    assert p.analyze(tiny_video, client=_leaving_vlm(fake_vlm_cls), workers=1).verdict == "no_violation"

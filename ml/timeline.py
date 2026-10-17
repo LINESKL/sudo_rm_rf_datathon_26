@@ -3,8 +3,8 @@ from __future__ import annotations
 from ml.types import TIMELINE_LABELS
 
 SIGNALS = {
-    "cashier_present": lambda s: s["cashier_present"],
-    "cashier_absent": lambda s: not s["cashier_present"],
+    "cashier_present": lambda s: s["cashier_present"] and s["cashier_at_workplace"],
+    "cashier_absent": lambda s: not (s["cashier_present"] and s["cashier_at_workplace"]),
     "screen_unlocked": lambda s: s["laptop_screen"] == "app_visible",
     "screen_open_dark": lambda s: s["laptop_screen"] == "dark_or_off",
     "laptop_open": lambda s: s["laptop_screen"] in ("app_visible", "dark_or_off"),

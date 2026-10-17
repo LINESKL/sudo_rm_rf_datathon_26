@@ -11,6 +11,8 @@ from ml.types import AnalysisResult, Evidence, Violation
 from ml.video import low_res_stream, probe, sample_frames, to_jpeg_b64
 from ml.vlm import VLMClient
 
+MIN_CONFIDENCE = 0.5  # открытый проход без подтверждения (0.3–0.45) не проходит
+
 STAGE_HOOKS: list = []  # (cands, scene, client, video_path, time_left) -> cands
 
 from ml.verify import verify  # noqa: E402
@@ -79,6 +81,7 @@ def analyze(video_path, deadline_s: float = 240.0, on_progress=None, client=None
             continue
         cands = hook(cands, scene, client, video_path, left())
 
+    cands = [c for c in cands if c.confidence >= MIN_CONFIDENCE]
     violations = [to_violation(c, video_path, duration) for c in sorted(cands, key=lambda c: c.t)]
     degraded |= getattr(client, "failures", 0) > failures_before or left() <= 0
     progress("done", 1.0)

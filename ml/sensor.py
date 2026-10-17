@@ -8,6 +8,7 @@ STATE_SCHEMA = {
     "type": "object",
     "properties": {
         "cashier_present": {"type": "boolean"},
+        "cashier_at_workplace": {"type": "boolean"},
         "cashier_holding_phone": {"type": "boolean"},
         "cashier_eating_or_drinking": {"type": "boolean"},
         "laptop_screen": {"type": "string",
@@ -25,7 +26,8 @@ STATE_SCHEMA["required"] = list(STATE_SCHEMA["properties"])
 
 STATE_PROMPT = """Overhead CCTV frame of a bank cashier room. The CASHIER is the bank employee who works at the desk with the laptop and the cash counting machine. Clients and cash couriers sit or stand on the opposite (client) side of the desk.
 Answer strictly about what is visible in THIS frame:
-- cashier_present: the cashier is in the room at or near the cashier's workplace.
+- cashier_present: the cashier is anywhere in the room.
+- cashier_at_workplace: the cashier is seated or standing right at her desk, within arm's reach of the laptop; false if she has walked away (to the door, the safe, elsewhere) or left the room.
 - cashier_holding_phone: the cashier (not a client) holds a smartphone.
 - cashier_eating_or_drinking: the cashier is eating or holding a cup/drink to the mouth.
 - laptop_screen: app_visible = an application, document or spreadsheet is open; lock_screen = wallpaper/lock screen; dark_or_off = black screen with lid open; closed = lid closed.
