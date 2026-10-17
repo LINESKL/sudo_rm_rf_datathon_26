@@ -2,7 +2,8 @@ import type { JobDetails, ServiceHealth } from './contracts'
 
 export const MAX_VIDEO_BYTES = 200 * 1024 * 1024
 
-const UPLOAD_TIMEOUT_MS = 120_000
+// No total upload limit: a 29 MB file on a slow link may take minutes. Fail only on a stall.
+const UPLOAD_STALL_MS = 60_000
 const DETAILS_TIMEOUT_MS = 15_000
 const MAX_EVIDENCE_BASE64_LENGTH = 14_000_000
 const TIMESTAMP_TOLERANCE_SEC = 0.01
@@ -257,8 +258,17 @@ export function uploadVideo(
 
     const xhr = new XMLHttpRequest()
     let settled = false
+    let stall: ReturnType<typeof setTimeout> | undefined
+    const armStall = () => {
+      clearTimeout(stall)
+      stall = setTimeout(() => {
+        fail(timeoutError()) // settle first: cleanup detaches onabort before abort() fires it
+        xhr.abort()
+      }, UPLOAD_STALL_MS)
+    }
 
     const cleanup = () => {
+      clearTimeout(stall)
       signal.removeEventListener('abort', cancel)
       xhr.onload = xhr.onerror = xhr.ontimeout = xhr.onabort = null
       xhr.upload.onprogress = null
@@ -298,6 +308,7 @@ export function uploadVideo(
     xhr.ontimeout = () => fail(timeoutError())
     xhr.onabort = () => fail(aborted())
     xhr.upload.onprogress = (event) => {
+      armStall()
       if (event.lengthComputable && event.total > 0) {
         onProgress(Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100))))
       }
@@ -307,10 +318,11 @@ export function uploadVideo(
     try {
       xhr.open('POST', '/api/v1/analyze')
       xhr.setRequestHeader('X-API-Key', apiKey)
-      xhr.timeout = UPLOAD_TIMEOUT_MS
+      xhr.timeout = 0
       const body = new FormData()
       body.append('file', file)
       xhr.send(body)
+      armStall()
     } catch {
       fail(networkError())
     }

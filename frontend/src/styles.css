@@ -534,6 +534,10 @@
     color: var(--violation);
     background: var(--violation-bg);
   }
+  .needs-review {
+    color: var(--review, #7a5a00);
+    background: var(--review-bg, #fff6db);
+  }
   .clean {
     color: var(--ok);
     background: var(--ok-bg);

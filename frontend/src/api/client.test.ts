@@ -104,7 +104,7 @@ describe('uploadVideo', () => {
 
     expect(xhr.open).toHaveBeenCalledWith('POST', '/api/v1/analyze')
     expect(xhr.setRequestHeader).toHaveBeenCalledExactlyOnceWith('X-API-Key', 'bank-key')
-    expect(xhr.timeout).toBe(120_000)
+    expect(xhr.timeout).toBe(0) // no total limit: slow links must finish a 29 MB upload
     expect(xhr.send.mock.calls[0][0]).toBeInstanceOf(FormData)
     expect((xhr.send.mock.calls[0][0] as FormData).get('file')).toBe(file)
     xhr.upload.onprogress?.(
@@ -541,5 +541,27 @@ describe('getServiceHealth', () => {
     controller.abort()
     resolveBody({ mode: 'pipeline', status: 'ok' })
     await expect(request).rejects.toMatchObject({ name: 'AbortError' })
+  })
+})
+
+
+describe('uploadVideo stall watchdog', () => {
+  it('fails with a timeout only after 60 s without upload progress', async () => {
+    vi.useFakeTimers()
+    try {
+      const request = uploadVideo(video(), 'k', vi.fn(), new AbortController().signal)
+      const xhr = lastUpload()
+      const assertion = expect(request).rejects.toMatchObject({ kind: 'timeout' })
+      await vi.advanceTimersByTimeAsync(50_000)
+      xhr.upload.onprogress?.(
+        new ProgressEvent('progress', { lengthComputable: true, loaded: 1, total: 100 }),
+      )
+      await vi.advanceTimersByTimeAsync(50_000) // 100 s total, but progress was seen at 50 s
+      expect(xhr.abort).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(11_000)
+      await assertion
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

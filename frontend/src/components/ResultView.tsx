@@ -28,10 +28,17 @@ function timecode(seconds: number) {
     .padStart(2, '0')
   const rest = new Intl.NumberFormat('ru-RU', {
     minimumIntegerDigits: 2,
-    maximumFractionDigits: 3,
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
     useGrouping: false,
   }).format(seconds % 60)
   return `${minutes}:${rest}`
+}
+
+const seconds1 = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1, useGrouping: false })
+
+function sec(value: number) {
+  return seconds1.format(value)
 }
 
 function EvidenceImage({ frame, large = false }: { frame: EvidenceFrame; large?: boolean }) {
@@ -88,7 +95,7 @@ function EvidencePreview({
         </DialogContent>
       </Dialog>
       <figcaption className="mono" title={`${frame.timestamp_sec} с от начала видео`}>
-        {timecode(frame.timestamp_sec)} · {frame.timestamp_sec} с
+        {timecode(frame.timestamp_sec)} · {sec(frame.timestamp_sec)} с
       </figcaption>
     </figure>
   )
@@ -149,7 +156,7 @@ export function ResultView({
         </Alert>
       )}
       <div
-        className={`result-banner ${hasFindings || needsReview ? 'has-findings' : 'clean'}`}
+        className={`result-banner ${hasFindings ? 'has-findings' : needsReview ? 'needs-review' : 'clean'}`}
         role="status"
       >
         {hasFindings || needsReview ? <CircleAlert size={28} /> : <ShieldCheck size={28} />}
@@ -189,7 +196,7 @@ export function ResultView({
             </div>
             <div className="event-metadata">
               <span className="mono" title={`${violation.timecode_sec} с от начала видео`}>
-                {timecode(violation.timecode_sec)} · {violation.timecode_sec} с
+                {timecode(violation.timecode_sec)} · {sec(violation.timecode_sec)} с
               </span>
               <Badge variant="secondary" className="rounded-full">
                 Уверенность: {confidenceLabels[violation.confidence_level]}

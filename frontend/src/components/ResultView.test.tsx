@@ -62,7 +62,7 @@ describe('ResultView', () => {
     })
     render(<ResultView result={result([violation])} onReset={vi.fn()} serviceMode="pipeline" />)
     expect(screen.getByRole('heading', { name: violation.type })).toBeVisible()
-    expect(screen.getAllByText('00:08,625 · 8.625 с')).toHaveLength(2)
+    expect(screen.getAllByText('00:08,6 · 8,6 с')).toHaveLength(2)
     expect(screen.getByText('Уверенность: средняя')).toBeVisible()
     expect(screen.getByText(violation.observed)).toBeVisible()
     expect(screen.getByText(violation.why)).toBeVisible()
@@ -218,5 +218,17 @@ describe('ResultView', () => {
     render(<ResultView result={result()} onReset={onReset} serviceMode="pipeline" />)
     await user.click(screen.getByRole('button', { name: 'Новое видео' }))
     expect(onReset).toHaveBeenCalledOnce()
+  })
+})
+
+
+describe('ResultView review fixes', () => {
+  it('shows an unconfirmed clean result as neutral review, not as a violation', () => {
+    const { container } = render(
+      <ResultView result={result([])} onReset={vi.fn()} serviceMode="unknown" />,
+    )
+    const banner = container.querySelector('.result-banner')
+    expect(banner).toHaveClass('needs-review')
+    expect(banner).not.toHaveClass('has-findings')
   })
 })
