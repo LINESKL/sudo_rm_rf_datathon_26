@@ -1,12 +1,19 @@
 from ml.outsider import find_outsider, outsider_hook
 
 
-def test_first_yes_window_gives_one_candidate(tiny_video, fake_vlm_cls):
-    # windows start every 2 s; the answer depends on which frames are sent
+def test_two_consecutive_yes_windows_give_one_candidate(tiny_video, fake_vlm_cls):
+    # windows start every 2 s (frames s..s+3); t=5s is only in the windows starting at 2 and 4
     def responder(imgs, prompt):
-        return {"answer": "yes" if "t=4s" in prompt else "no", "what_is_visible": "man behind cashier"}
+        return {"answer": "yes" if "t=5s" in prompt else "no", "what_is_visible": "man behind cashier"}
     c = find_outsider(fake_vlm_cls(responder), tiny_video, 8.0)
     assert [(x.type_id, x.t) for x in c] == [("outsider_cashier_zone", 3.5)]
+
+
+def test_single_yes_window_is_not_enough(tiny_video, fake_vlm_cls):
+    # 40 videos: every false alarm was one window, the real walk-ins span two
+    def responder(imgs, prompt):
+        return {"answer": "yes" if prompt.count("t=0s") else "no", "what_is_visible": "client"}
+    assert find_outsider(fake_vlm_cls(responder), tiny_video, 8.0) == []
 
 
 def test_no_outsider(tiny_video, fake_vlm_cls):

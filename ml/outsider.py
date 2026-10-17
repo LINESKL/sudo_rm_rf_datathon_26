@@ -34,11 +34,14 @@ def find_outsider(client, video_path, duration: float, workers: int = 8) -> list
         ans = client.ask_json([im for _, im in frames], _PROMPT.format(times=times), VERIFY_SCHEMA)
         return float(s), isinstance(ans, dict) and ans.get("answer") == "yes"
 
-    hits = [s for s, yes in map_parallel(one, window_starts(duration), workers) if yes]
-    if not hits:
+    starts = window_starts(duration)
+    yes = [y for _, y in map_parallel(one, starts, workers)]
+    # Two neighbouring windows: on 40 videos every false alarm was a single window.
+    first = next((starts[i] for i in range(len(yes) - 1) if yes[i] and yes[i + 1]), None)
+    if first is None:
         return []
     conf = float(load_catalog()["outsider_cashier_zone"]["confidence"])
-    return [Candidate("outsider_cashier_zone", hits[0] + 1.5, hits[0] + 4.0, max(conf, 0.6))]
+    return [Candidate("outsider_cashier_zone", first + 1.5, first + 4.0, max(conf, 0.6))]
 
 
 def outsider_hook(cands, scene, client, video_path, time_left):
