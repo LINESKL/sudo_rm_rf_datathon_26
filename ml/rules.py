@@ -59,7 +59,6 @@ def _safe_unsecured(scene):
 
 RULES = {
     "workstation_unlocked": _on_leave("workstation_unlocked", "screen_unlocked"),
-    "workstation_left_open": _on_leave("workstation_left_open", "screen_open_dark"),
     "cash_unattended": _cash_unattended,
     "safe_unsecured": _safe_unsecured,
     "personal_items": _presence("personal_items", "personal_items", 3.0),

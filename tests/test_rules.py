@@ -43,3 +43,8 @@ def test_walking_away_inside_room_counts_as_leave():
     st = [_st()] * 10 + [_st(cashier_at_workplace=False)] * 10  # still in room, away from desk
     c = [x for x in run_rules(_scene(st)) if x.type_id == "workstation_unlocked"]
     assert len(c) == 1 and c[0].t == 5.0
+
+
+def test_dark_screen_on_leave_is_clean():
+    st = [_st()] * 10 + [_st(cashier_at_workplace=False, laptop_screen="dark_or_off")] * 10
+    assert not _types(run_rules(_scene(st)))
