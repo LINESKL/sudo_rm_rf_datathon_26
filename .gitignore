@@ -24,3 +24,11 @@ data/raw/
 open/
 *.mov
 *.docx
+
+# Runtime and local verification
+backend/data/
+.pytest_cache/
+.tools/
+test-results/
+frontend/dist/
+*.egg-info/
