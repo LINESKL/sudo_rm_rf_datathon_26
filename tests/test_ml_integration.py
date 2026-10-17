@@ -31,6 +31,8 @@ def vlm_server():
                 return
             if "cashier_present" in properties:
                 answer = STATE | {"cashier_holding_phone": state["mode"] in ("phone", "partial_phone")}
+            elif "door_left_open" in properties:  # ml.actions questionnaire
+                answer = {k: False for k in properties if k != "what"} | {"what": "fixture"}
             elif "steps" in properties:
                 answer = {"steps": ["none"]}
             elif "violation" in properties:

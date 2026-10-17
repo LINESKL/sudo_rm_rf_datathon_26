@@ -68,6 +68,14 @@ outsider_cashier_zone:
   confidence: 0.6
   norm: {document: *npa14, point: "п. 8", quote: "Кассовый узел подлежит изолированию … одним закрывающимся служебным входом", url: "https://adilet.zan.kz/rus/docs/V2000020075", verified: true}
 
+door_left_open:
+  title: Дверь кассового помещения оставлена открытой
+  observed: "С {t} с входная дверь кассового помещения несколько секунд подряд остаётся открытой."
+  why: "Кассовый узел изолируется и имеет один закрывающийся служебный вход; открытая дверь даёт доступ посторонним."
+  verify_question: "Does the glass entrance door of the room stand open in these frames?"
+  confidence: 0.6
+  norm: {document: *npa14, point: "п. 8", quote: "Кассовый узел подлежит изолированию … одним закрывающимся служебным входом", url: "https://adilet.zan.kz/rus/docs/V2000020075", verified: true}
+
 banknote_check_skipped:
   title: Наличные не проверены на подлинность
   observed: "В {t} с кассир принимает и пересчитывает наличные без проверки на оборудовании для определения подлинности."

@@ -28,7 +28,11 @@ STAGE_HOOKS.append(outsider_hook)
 
 from ml.screen import screen_hook  # noqa: E402
 
-STAGE_HOOKS.append(screen_hook)  # after verify: the zoomed screen class is the check  # after verify: the window question already is the check
+STAGE_HOOKS.append(screen_hook)  # after verify: the zoomed screen class is the check
+
+from ml.actions import actions_hook  # noqa: E402
+
+STAGE_HOOKS.append(actions_hook)  # door left open, counting by hand without the machine
 
 # ponytail: open pass (ml/open_pass.py) is off — on 32 videos it produced only false positives.
 
