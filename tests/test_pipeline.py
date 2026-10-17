@@ -39,3 +39,9 @@ def test_open_pass_not_in_default_stages():
     from ml.open_pass import open_pass
     from ml.pipeline import STAGE_HOOKS
     assert open_pass not in STAGE_HOOKS
+
+
+def test_bad_camera_interval_suppresses_leave(tiny_video, fake_vlm_cls, monkeypatch):
+    import ml.pipeline as p
+    monkeypatch.setattr(p, "degraded_intervals", lambda ts, frames: [(0.0, 100.0)])
+    assert p.analyze(tiny_video, client=_leaving_vlm(fake_vlm_cls), workers=1).verdict == "no_violation"

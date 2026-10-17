@@ -62,3 +62,9 @@ def test_outsider_needs_two_people_for_3s():
 def test_eating_needs_2s():
     brief = [_st()] * 4 + [_st(cashier_eating_or_drinking=True)] * 3 + [_st()] * 4
     assert "eating_drinking" not in _types(run_rules(_scene(brief)))
+
+
+def test_leave_requires_visible_workplace():
+    # VLM says "not at workplace" but the workplace itself is occluded/degraded: not a leave
+    st = [_st()] * 10 + [_st(cashier_at_workplace=False, workplace_visible="occluded")] * 10
+    assert "workstation_unlocked" not in _types(run_rules(_scene(st)))

@@ -5,7 +5,8 @@ def _st(**kw):
     base = {"cashier_present": True, "cashier_at_workplace": True, "cashier_holding_phone": False, "cashier_eating_or_drinking": False,
             "laptop_screen": "app_visible", "safe_door_open": "no", "key_in_safe_lock": "no",
             "cash_on_desk": False, "collection_bag_on_desk": False, "personal_items_on_desk": False,
-            "other_person_on_cashier_side": False, "people_count": 1}
+            "other_person_on_cashier_side": False, "people_count": 1,
+            "workplace_visible": "visible"}
     return base | kw
 
 def test_smooth_removes_single_flicker():

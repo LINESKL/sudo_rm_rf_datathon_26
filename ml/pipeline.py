@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 
 from ml.catalog import fmt_t, load_catalog, norm_for
+from ml.quality import degraded_intervals, mark_degraded
 from ml.rules import RULES, Candidate, run_rules
 from ml.sampling import choose_times, motion_score
 from ml.sensor import sense
@@ -68,6 +69,7 @@ def analyze(video_path, deadline_s: float = 240.0, on_progress=None, client=None
     if frames and not samples:
         raise RuntimeError("VLM unavailable: no frame could be analysed (degraded)")
     degraded = not samples or len(samples) != len(frames)
+    samples = mark_degraded(samples, degraded_intervals(ts, small))
     scene = Scene(samples, duration)
     cands = run_rules(scene)
 

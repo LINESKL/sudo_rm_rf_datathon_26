@@ -20,6 +20,7 @@ STATE_SCHEMA = {
         "personal_items_on_desk": {"type": "boolean"},
         "other_person_on_cashier_side": {"type": "boolean"},
         "people_count": {"type": "integer", "minimum": 0},
+        "workplace_visible": {"type": "string", "enum": ["visible", "occluded", "degraded"]},
     },
 }
 STATE_SCHEMA["required"] = list(STATE_SCHEMA["properties"])
@@ -38,6 +39,7 @@ Answer strictly about what is visible in THIS frame:
 - personal_items_on_desk: handbag, backpack, coat or jacket on the desk.
 - other_person_on_cashier_side: a SECOND person stands behind or right beside the cashier on HER side of the desk. Clients sitting or standing on the opposite side of the desk do NOT count. If unsure, answer false.
 - people_count: number of people visible.
+- workplace_visible: visible = the cashier's chair and desk area are clearly seen; occluded = blocked by a person or object; degraded = too dark, overexposed, blurred or glitched to judge. If not visible, do NOT guess about the cashier.
 Return JSON only."""
 
 
