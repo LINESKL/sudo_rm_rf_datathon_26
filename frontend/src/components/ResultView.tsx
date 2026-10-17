@@ -1,9 +1,13 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
+  ChevronLeft,
+  ChevronRight,
   CircleAlert,
   ExternalLink,
   ImageOff,
+  Link2,
   Play,
+  Printer,
   ScanSearch,
   ShieldCheck,
   Upload,
@@ -26,7 +30,9 @@ import { safePreviewUrl } from '@/api/client'
 import { timecode } from '@/lib/timecode'
 import { VideoPreview } from './VideoPreview'
 import type { VideoPreviewHandle } from './VideoPreview'
-import { StateTimeline } from './StateTimeline'
+import { Timeline } from './Timeline'
+import { ReviewDecision } from './ReviewDecision'
+import { useReview } from '@/lib/useReview'
 
 function EvidenceImage({ frame, large = false }: { frame: EvidenceFrame; large?: boolean }) {
   const [failed, setFailed] = useState(false)
@@ -104,10 +110,53 @@ function EvidencePreview({
   )
 }
 
-const confidenceLabels = { low: 'низкая', medium: 'средняя', high: 'высокая' }
+// Один крупный кадр и миниатюры: проверяющий листает доказательства, не теряя деталей.
+function EvidenceGallery({
+  frames,
+  eventIndex,
+  canSeek,
+  onShow,
+}: {
+  frames: EvidenceFrame[]
+  eventIndex: number
+  canSeek: boolean
+  onShow: (seconds: number) => void
+}) {
+  const [current, setCurrent] = useState(0)
+  const frame = frames[Math.min(current, frames.length - 1)]
+  if (!frame) return null
+  return (
+    <div className="evidence-gallery">
+      <EvidencePreview
+        key={current}
+        frame={frame}
+        eventIndex={eventIndex}
+        frameIndex={current}
+        canSeek={canSeek}
+        onShow={() => onShow(frame.timestamp_sec)}
+      />
+      {frames.length > 1 && (
+        <div className="evidence-thumbs">
+          {frames.map((item, index) => (
+            <button
+              key={`${index}:${item.timestamp_sec}`}
+              type="button"
+              className="evidence-thumb"
+              aria-label={`Показать кадр ${index + 1} из ${frames.length}`}
+              aria-pressed={index === current}
+              onClick={() => setCurrent(index)}
+            >
+              <img src={`data:image/jpeg;base64,${item.image_base64}`} alt="" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
-const percentOf = (seconds: number, duration: number) =>
-  `${Math.max(0, Math.min(100, (seconds / duration) * 100))}%`
+const confidenceLabels = { low: 'низкая', medium: 'средняя', high: 'высокая' }
+const confidenceSteps = { low: 1, medium: 2, high: 3 }
 
 export function ResultView({
   result,
@@ -126,6 +175,9 @@ export function ResultView({
     null,
   )
   const [selected, setSelected] = useState<{ jobId: string; index: number } | null>(null)
+  const [copied, setCopied] = useState(false)
+  const { review, update } = useReview(result.job_id)
+  const reviewed = result.violations.filter((_, index) => review[index]).length
   const canSeek =
     availability?.jobId === result.job_id
       ? availability.available
@@ -149,6 +201,35 @@ export function ResultView({
     setSelected({ jobId: result.job_id, index })
     playerRef.current?.seek(Math.max(0, seconds - 1))
   }
+  const order = result.violations
+    .map((violation, index) => ({ index, time: violation.timecode_sec }))
+    .sort((a, b) => a.time - b.time)
+    .map(({ index }) => index)
+  function step(direction: 1 | -1) {
+    if (!canSeek || order.length === 0) return
+    const current = selected?.jobId === result.job_id ? order.indexOf(selected.index) : -1
+    const next =
+      current < 0
+        ? direction > 0
+          ? 0
+          : order.length - 1
+        : (current + direction + order.length) % order.length
+    seek(order[next], result.violations[order[next]].timecode_sec)
+  }
+  const stepRef = useRef(step)
+  useEffect(() => {
+    stepRef.current = step
+  })
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null
+      if (target?.closest('input, textarea, [contenteditable="true"]')) return
+      if (event.key === ']') stepRef.current(1)
+      if (event.key === '[') stepRef.current(-1)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
   const hasFindings = result.verdict === 'violation'
   const needsReview = result.degraded !== false || serviceMode !== 'pipeline'
   const duration = result.duration_sec
@@ -187,7 +268,7 @@ export function ResultView({
       <div className="result-facts">
         {result.rules_checked !== undefined && (
           <span>
-            Проверено правил<strong className="mono">{result.rules_checked}</strong>
+            Проверено типов нарушений<strong className="mono">{result.rules_checked}</strong>
           </span>
         )}
         <span>
@@ -202,6 +283,40 @@ export function ResultView({
             с
           </strong>
         </span>
+      </div>
+      <p className="print-only">
+        Отчёт Observer · задача {result.job_id} · {new Date().toLocaleString('ru-RU')}
+      </p>
+      <div className="result-actions">
+        <Button type="button" className="h-10 rounded-xl" onClick={() => window.print()}>
+          <Printer aria-hidden="true" /> Отчёт / PDF
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10 rounded-xl"
+          onClick={() => {
+            void navigator.clipboard
+              ?.writeText(window.location.href)
+              .then(() => setCopied(true))
+              .catch(() => setCopied(false))
+          }}
+        >
+          <Link2 aria-hidden="true" /> Скопировать ссылку
+        </Button>
+        {copied && (
+          <span className="small-note" role="status">
+            Ссылка скопирована
+          </span>
+        )}
+        {result.violations.length > 0 && (
+          <span className="review-progress">
+            Проверено {reviewed} из {result.violations.length}
+            <span className="review-progress-bar" aria-hidden="true">
+              <span style={{ width: `${(reviewed / result.violations.length) * 100}%` }} />
+            </span>
+          </span>
+        )}
       </div>
       {serviceMode === 'stub' && (
         <Alert className="mb-5 rounded-xl border-0 bg-muted">
@@ -250,53 +365,40 @@ export function ResultView({
         onPositionChange={(time) => setPosition({ jobId: result.job_id, time })}
         onAvailabilityChange={(available) => setAvailability({ jobId: result.job_id, available })}
       />
-      {result.violations.length > 0 && duration > 0 && (
-        <div className="event-track" role="group" aria-label="События на шкале видео">
-          <div className="timeline-scale mono" aria-hidden="true">
-            <span>{timecode(0)}</span>
-            <span>{timecode(duration)}</span>
-          </div>
-          <div
-            className="event-track-rail"
-            style={{ height: `${result.violations.length * 32}px` }}
+      {order.length > 0 && (
+        <div className="event-nav">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 rounded-xl"
+            disabled={!canSeek}
+            aria-label="Предыдущее событие"
+            onClick={() => step(-1)}
           >
-            {result.violations.map((violation, index) => (
-              <Button
-                key={`${index}:${violation.type_id}`}
-                type="button"
-                variant="outline"
-                className="event-marker h-7 justify-start rounded-lg border-[var(--violation)]/45 bg-[var(--violation-bg)] px-2 text-xs text-[var(--violation)] shadow-none hover:bg-accent hover:text-[var(--violation)] disabled:opacity-100 data-[highlighted]:border-[var(--violation)] data-[highlighted]:bg-[var(--violation)] data-[highlighted]:text-white"
-                style={{
-                  top: `${index * 32}px`,
-                  left: percentOf(violation.timecode_sec, duration),
-                  width: percentOf(violation.timecode_end_sec - violation.timecode_sec, duration),
-                }}
-                disabled={!canSeek}
-                title={violation.type}
-                aria-label={`Событие ${index + 1}: ${violation.type}, ${timecode(violation.timecode_sec)}`}
-                aria-current={isActive(index) ? 'true' : undefined}
-                data-highlighted={isHighlighted(index) || undefined}
-                onClick={() => seek(index, violation.timecode_sec)}
-              >
-                <span className="mono">{index + 1}</span>
-                <span className="min-w-0 truncate font-normal">{violation.type}</span>
-              </Button>
-            ))}
-            {activeTime !== null && (
-              <span
-                className="timeline-cursor"
-                aria-hidden="true"
-                style={{ left: percentOf(activeTime, duration) }}
-              />
-            )}
-          </div>
+            <ChevronLeft aria-hidden="true" /> Предыдущее
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 rounded-xl"
+            disabled={!canSeek}
+            aria-label="Следующее событие"
+            onClick={() => step(1)}
+          >
+            Следующее событие <ChevronRight aria-hidden="true" />
+          </Button>
+          <span className="small-note">
+            Клавиши <kbd>[</kbd> и <kbd>]</kbd>
+          </span>
         </div>
       )}
-      <StateTimeline
+      <Timeline
         result={result}
         activeTime={activeTime}
         canSeek={canSeek}
         onSeek={(seconds) => playerRef.current?.seek(seconds)}
+        onEventSeek={(index) => seek(index, result.violations[index].timecode_sec)}
+        isHighlighted={isHighlighted}
       />
       {result.violations.map((violation, index) => (
         <Card
@@ -330,64 +432,76 @@ export function ResultView({
                 <Badge className="rounded-full bg-accent text-primary">Текущий фрагмент</Badge>
               )}
               <Badge variant="secondary" className="rounded-full">
+                <span
+                  className="confidence-scale"
+                  role="img"
+                  aria-label={`Уверенность ${confidenceSteps[violation.confidence_level]} из 3`}
+                >
+                  {[1, 2, 3].map((step) => (
+                    <i
+                      key={step}
+                      data-filled={step <= confidenceSteps[violation.confidence_level] || undefined}
+                    />
+                  ))}
+                </span>
                 Уверенность: {confidenceLabels[violation.confidence_level]}
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-5 px-5">
-            <div className="evidence-grid">
-              {violation.evidence_frames.map((frame, frameIndex) => (
-                <EvidencePreview
-                  key={`${frameIndex}:${frame.timestamp_sec}`}
-                  frame={frame}
-                  eventIndex={index}
-                  frameIndex={frameIndex}
-                  canSeek={canSeek}
-                  onShow={() => seek(index, frame.timestamp_sec)}
-                />
-              ))}
-            </div>
-            <dl className="event-explanation">
-              <div>
-                <dt>Что видно</dt>
-                <dd>{violation.observed}</dd>
+          <CardContent className="event-body px-5">
+            <EvidenceGallery
+              frames={violation.evidence_frames}
+              eventIndex={index}
+              canSeek={canSeek}
+              onShow={(seconds) => seek(index, seconds)}
+            />
+            <div className="event-text">
+              <dl className="event-explanation">
+                <div>
+                  <dt>Что видно</dt>
+                  <dd>{violation.observed}</dd>
+                </div>
+                <div>
+                  <dt>Почему это может быть нарушением</dt>
+                  <dd>{violation.why}</dd>
+                </div>
+              </dl>
+              <div className="event-rule">
+                <h5>Норматив</h5>
+                {violation.rule ? (
+                  <>
+                    <p>{violation.rule.document}</p>
+                    {violation.rule.point && (
+                      <p className="text-muted-foreground">{violation.rule.point}</p>
+                    )}
+                    {violation.rule.quote && (
+                      <details className="rule-quote">
+                        <summary>Фрагмент документа</summary>
+                        <blockquote>{violation.rule.quote}</blockquote>
+                      </details>
+                    )}
+                    <a
+                      className="source-link"
+                      aria-label={`Открыть источник: ${violation.rule.document}`}
+                      href={violation.rule.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Открыть источник <ExternalLink size={14} aria-hidden="true" />
+                    </a>
+                  </>
+                ) : (
+                  <p className="rule-missing">
+                    <CircleAlert size={16} aria-hidden="true" />
+                    Норматив не определён, требуется проверка.
+                  </p>
+                )}
               </div>
-              <div>
-                <dt>Почему это может быть нарушением</dt>
-                <dd>{violation.why}</dd>
-              </div>
-            </dl>
-            <div className="event-rule">
-              <h5>Нормативный источник</h5>
-              {violation.rule ? (
-                <>
-                  <p>{violation.rule.document}</p>
-                  {violation.rule.point && (
-                    <p className="text-muted-foreground">{violation.rule.point}</p>
-                  )}
-                  {violation.rule.quote && (
-                    <details className="rule-quote">
-                      <summary>Фрагмент документа</summary>
-                      <blockquote>{violation.rule.quote}</blockquote>
-                    </details>
-                  )}
-                  <a
-                    className="source-link"
-                    aria-label={`Открыть источник: ${violation.rule.document}`}
-                    href={violation.rule.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Открыть источник <ExternalLink size={14} aria-hidden="true" />
-                  </a>
-                </>
-              ) : (
-                <p className="rule-missing">
-                  <CircleAlert size={16} aria-hidden="true" />
-                  Норматив не определён, требуется проверка.
-                </p>
-              )}
             </div>
+            <ReviewDecision
+              decision={review[index]}
+              onChange={(decision) => update(index, decision)}
+            />
           </CardContent>
         </Card>
       ))}

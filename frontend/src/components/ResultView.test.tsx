@@ -180,7 +180,7 @@ describe('ResultView', () => {
         serviceMode="pipeline"
       />,
     )
-    expect(screen.queryByText('Проверено правил')).not.toBeInTheDocument()
+    expect(screen.queryByText('Проверено типов нарушений')).not.toBeInTheDocument()
     expect(screen.getByText('Время обработки')).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Нарушение не обнаружено' })).toBeVisible()
   })
@@ -233,7 +233,7 @@ describe('ResultView', () => {
     render(<ResultView result={result(violations)} onReset={vi.fn()} serviceMode="pipeline" />)
     fireEvent.error(screen.getByAltText('Кадр-доказательство на 8.625 с'))
     expect(screen.getByText('Кадр недоступен. Проверьте исходную запись.')).toBeVisible()
-    expect(screen.getAllByRole('img')).toHaveLength(3)
+    expect(screen.getAllByAltText(/^Кадр-доказательство/)).toHaveLength(3)
     for (const violation of violations) {
       expect(screen.getByRole('heading', { name: violation.type })).toBeVisible()
       expect(screen.getByText(violation.observed)).toBeVisible()
@@ -247,10 +247,18 @@ describe('ResultView', () => {
     render(<ResultView result={result([event()])} onReset={vi.fn()} serviceMode="pipeline" />)
     const trigger = screen.getByRole('button', { name: 'Увеличить кадр 1 события 1, 8.625 с' })
     await user.tab()
+    expect(screen.getByRole('button', { name: 'Отчёт / PDF' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Скопировать ссылку' })).toHaveFocus()
+    await user.tab()
     expect(screen.getByLabelText('Плеер загруженного видео')).toHaveFocus()
     await user.tab()
     // Preview access refresh no longer needs a key, so it is a real tab stop now.
     expect(screen.getByRole('button', { name: /Обновить доступ к видео/ })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Предыдущее событие' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Следующее событие' })).toHaveFocus()
     await user.tab()
     expect(screen.getByRole('button', { name: 'Событие 1: Событие 1, 00:08,6' })).toHaveFocus()
     await user.tab()
@@ -362,16 +370,23 @@ describe('ResultView review fixes', () => {
       timeline_labels: { cash_on_desk: 'Деньги на столе' },
     })
     const view = render(<ResultView result={details} onReset={vi.fn()} serviceMode="pipeline" />)
-    const section = screen.getByRole('region', { name: 'Состояния сцены' })
+    expect(screen.getByRole('region', { name: 'Лента времени' })).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: /^Состояния сцены/ }))
     const video = screen.getByLabelText<HTMLVideoElement>('Плеер загруженного видео')
     Object.defineProperty(video, 'readyState', { configurable: true, value: 1 })
     Object.defineProperty(video, 'duration', { configurable: true, value: details.duration_sec })
-    await user.click(within(section).getByRole('button'))
+    await user.click(
+      within(screen.getByRole('group', { name: 'Деньги на столе' })).getByRole('button'),
+    )
     expect(video.currentTime).toBe(2.625)
-    expect(within(section).getByRole('button')).toHaveAttribute('aria-current', 'true')
+    expect(
+      within(screen.getByRole('group', { name: 'Деньги на столе' })).getByRole('button'),
+    ).toHaveAttribute('aria-current', 'true')
     video.currentTime = 12
     fireEvent.timeUpdate(video)
-    expect(within(section).getByRole('button')).not.toHaveAttribute('aria-current', 'true')
+    expect(
+      within(screen.getByRole('group', { name: 'Деньги на столе' })).getByRole('button'),
+    ).not.toHaveAttribute('aria-current', 'true')
     view.rerender(
       <ResultView
         result={{ ...details, job_id: 'next-scene-job' }}
@@ -391,14 +406,19 @@ describe('ResultView review fixes', () => {
         serviceMode="pipeline"
       />,
     )
-    const section = screen.getByRole('region', { name: 'Состояния сцены' })
+    const section = screen.getByRole('region', { name: 'Лента времени' })
+    fireEvent.click(screen.getByRole('button', { name: /^Состояния сцены/ }))
     const video = screen.getByLabelText<HTMLVideoElement>('Плеер загруженного видео')
     Object.defineProperty(video, 'readyState', { configurable: true, value: 1 })
     video.currentTime = 3
     fireEvent.timeUpdate(video)
-    expect(within(section).getByRole('button')).toHaveAttribute('aria-current', 'true')
+    expect(
+      within(screen.getByRole('group', { name: 'Деньги на столе' })).getByRole('button'),
+    ).toHaveAttribute('aria-current', 'true')
     fireEvent.error(video)
-    expect(within(section).getByRole('button')).toBeDisabled()
+    expect(
+      within(screen.getByRole('group', { name: 'Деньги на столе' })).getByRole('button'),
+    ).toBeDisabled()
     expect(section.querySelector('.timeline-cursor')).not.toBeInTheDocument()
     expect(screen.getByRole('article', { name: 'Событие 1: Событие 1' })).toBeVisible()
     expect(screen.getByAltText('Кадр-доказательство на 8.625 с')).toBeVisible()
@@ -552,5 +572,131 @@ describe('ResultView polish', () => {
     expect(screen.getByRole('article', { name: 'Событие 1: Событие 1' })).toHaveClass(
       'event-current',
     )
+  })
+})
+
+describe('ResultView event navigation', () => {
+  it('steps through events in time order with buttons and wraps around', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    render(
+      <ResultView
+        result={result([
+          event(0, { timecode_sec: 12, timecode_end_sec: 13 }),
+          event(1, { timecode_sec: 4, timecode_end_sec: 5 }),
+        ])}
+        onReset={vi.fn()}
+        serviceMode="pipeline"
+      />,
+    )
+    const video = screen.getByLabelText<HTMLVideoElement>('Плеер загруженного видео')
+    Object.defineProperty(video, 'readyState', { configurable: true, value: 1 })
+    const next = screen.getByRole('button', { name: 'Следующее событие' })
+    await user.click(next)
+    expect(video.currentTime).toBe(3)
+    expect(screen.getByRole('article', { name: 'Событие 2: Событие 2' })).toHaveClass(
+      'event-current',
+    )
+    await user.click(next)
+    expect(video.currentTime).toBe(11)
+    await user.click(next)
+    expect(video.currentTime).toBe(3)
+    await user.click(screen.getByRole('button', { name: 'Предыдущее событие' }))
+    expect(video.currentTime).toBe(11)
+  })
+})
+
+describe('ResultView evidence gallery', () => {
+  it('shows one large frame and switches it from thumbnails', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    const jpeg = sampleDetails.violations[0].evidence_frames[0].image_base64
+    render(
+      <ResultView
+        result={result([
+          event(0, {
+            evidence_frames: [
+              { timestamp_sec: 8.6, image_base64: jpeg },
+              { timestamp_sec: 12, image_base64: jpeg },
+              { timestamp_sec: 18, image_base64: jpeg },
+            ],
+          }),
+        ])}
+        onReset={vi.fn()}
+        serviceMode="pipeline"
+      />,
+    )
+    const video = screen.getByLabelText<HTMLVideoElement>('Плеер загруженного видео')
+    Object.defineProperty(video, 'readyState', { configurable: true, value: 1 })
+    expect(screen.getAllByAltText(/^Кадр-доказательство на/)).toHaveLength(1)
+    const second = screen.getByRole('button', { name: 'Показать кадр 2 из 3' })
+    expect(second).toHaveAttribute('aria-pressed', 'false')
+    await user.click(second)
+    expect(second).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByAltText('Кадр-доказательство на 12 с')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Увеличить кадр 2 события 1, 12 с' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Показать кадр 2 события 1 в видео' }))
+    expect(video.currentTime).toBe(11)
+  })
+
+  it('names the normative block plainly and shows confidence as a three-step scale', () => {
+    render(<ResultView result={result([event()])} onReset={vi.fn()} serviceMode="pipeline" />)
+    expect(screen.getByRole('heading', { name: 'Норматив' })).toBeVisible()
+    expect(screen.getByRole('img', { name: 'Уверенность 3 из 3' })).toBeVisible()
+  })
+})
+
+describe('ResultView reviewer workflow', () => {
+  it('records a decision per finding, counts progress and restores it after a reload', async () => {
+    localStorage.clear()
+    const user = userEvent.setup()
+    const details = result([event(0), event(1)])
+    const view = render(<ResultView result={details} onReset={vi.fn()} serviceMode="pipeline" />)
+    expect(screen.getByText('Проверено 0 из 2')).toBeVisible()
+    const card = screen.getByRole('article', { name: 'Событие 1: Событие 1' })
+    const confirm = within(card).getByRole('button', { name: 'Нарушение подтверждаю' })
+    await user.click(confirm)
+    expect(confirm).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Проверено 1 из 2')).toBeVisible()
+    await user.type(within(card).getByRole('textbox', { name: 'Комментарий проверяющего' }), 'ок')
+    view.unmount()
+
+    render(<ResultView result={details} onReset={vi.fn()} serviceMode="pipeline" />)
+    const restored = screen.getByRole('article', { name: 'Событие 1: Событие 1' })
+    expect(within(restored).getByRole('button', { name: 'Нарушение подтверждаю' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(within(restored).getByRole('textbox', { name: 'Комментарий проверяющего' })).toHaveValue(
+      'ок',
+    )
+    await user.click(within(restored).getByRole('button', { name: 'Нарушение подтверждаю' }))
+    expect(screen.getByText('Проверено 0 из 2')).toBeVisible()
+  })
+
+  it('prints the report and copies the link to this check', async () => {
+    const user = userEvent.setup()
+    const print = vi.spyOn(window, 'print').mockImplementation(() => {})
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    render(<ResultView result={result([event()])} onReset={vi.fn()} serviceMode="pipeline" />)
+    await user.click(screen.getByRole('button', { name: 'Отчёт / PDF' }))
+    expect(print).toHaveBeenCalledOnce()
+    await user.click(screen.getByRole('button', { name: 'Скопировать ссылку' }))
+    expect(writeText).toHaveBeenCalledWith(window.location.href)
+    expect(await screen.findByText('Ссылка скопирована')).toBeVisible()
+  })
+})
+
+describe('ResultView facts wording', () => {
+  it('reports how many violation types were checked', () => {
+    render(
+      <ResultView
+        result={result([], { rules_checked: 8 })}
+        onReset={vi.fn()}
+        serviceMode="pipeline"
+      />,
+    )
+    expect(screen.getByText('Проверено типов нарушений').closest('span')).toHaveTextContent('8')
   })
 })

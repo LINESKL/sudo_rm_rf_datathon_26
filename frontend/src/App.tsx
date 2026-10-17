@@ -23,6 +23,8 @@ import { FALLBACK_STAGES } from './api/contracts'
 import { ApiError, getServiceHealth, validateVideo } from './api/client'
 import { ResultView } from './components/ResultView'
 import { useAnalysis } from './useAnalysis'
+import { timecode } from './lib/timecode'
+import { useVideoThumbnail } from './lib/useVideoThumbnail'
 
 function fileSize(bytes: number) {
   return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format(bytes / 1024 / 1024)} МБ`
@@ -68,6 +70,7 @@ export function App() {
   const errorRef = useRef<HTMLDivElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const analysis = useAnalysis()
+  const preview = useVideoThumbnail(file)
   const health = useQuery({
     queryKey: ['service-health', analysis.job?.id ?? null, analysis.done],
     queryFn: ({ signal }) => getServiceHealth(signal),
@@ -155,6 +158,12 @@ export function App() {
     else void analysis.start(file, '')
   }
 
+  const jobLabel = file
+    ? `${file.name} · ${fileSize(file.size)}`
+    : analysis.job
+      ? `Задача ${analysis.job.id}`
+      : ''
+
   function newVideo() {
     analysis.reset()
     setFile(null)
@@ -185,10 +194,7 @@ export function App() {
           <Alert role="note" className="mb-7 rounded-xl border-0 bg-muted text-muted-foreground">
             <CircleAlert size={17} />
             <AlertDescription className="text-xs">
-              <p>
-                Деморежим · ключ <code className="text-primary">demo-key</code>. Результат из
-                примера, видео не анализируется.
-              </p>
+              <p>Деморежим. Результат из примера, видео не анализируется.</p>
             </AlertDescription>
           </Alert>
         )}
@@ -231,12 +237,11 @@ export function App() {
             className="work-panel gap-0 rounded-3xl border-0 py-0 shadow-none"
           >
             <CardHeader className="panel-heading flex gap-3 px-5 min-[601px]:px-7">
-              <span className="section-number mono">0{step + 1}</span>
               <div>
                 <CardTitle>
                   <h2 tabIndex={-1} ref={panelHeadingRef}>
                     {result
-                      ? 'Проверка завершена'
+                      ? 'Результат проверки'
                       : processing
                         ? 'Проверяем запись'
                         : analysis.uploading
@@ -247,7 +252,7 @@ export function App() {
                 <CardDescription>
                   <p>
                     {result
-                      ? 'Результат готов к просмотру.'
+                      ? jobLabel
                       : processing
                         ? 'Видео обрабатывается. Дождитесь результата.'
                         : 'Одна запись — одна проверка.'}
@@ -281,11 +286,21 @@ export function App() {
                       >
                         {file ? (
                           <>
-                            <span className="upload-icon selected">
-                              <FileVideo size={29} strokeWidth={1.6} />
-                            </span>
+                            {preview ? (
+                              <img className="file-thumb" src={preview.thumb} alt="" />
+                            ) : (
+                              <span className="upload-icon selected">
+                                <FileVideo size={29} strokeWidth={1.6} />
+                              </span>
+                            )}
                             <p className="selected-name">{file.name}</p>
-                            <p className="drop-hint">{fileSize(file.size)} · Готово к отправке</p>
+                            <p className="drop-hint">
+                              {fileSize(file.size)}
+                              {preview && (
+                                <span className="mono"> · {timecode(preview.duration)}</span>
+                              )}{' '}
+                              · Готово к отправке
+                            </p>
                             <Button
                               ref={chooserRef}
                               type="button"
@@ -336,17 +351,28 @@ export function App() {
                           }}
                         />
                       </div>
+                      {!file && (
+                        <ol className="how-steps" aria-label="Как проходит проверка">
+                          <li>Загрузите запись с камеры кассы</li>
+                          <li>Observer ищет признаки нарушений кассовой дисциплины</li>
+                          <li>Решение принимаете вы: по видео, кадрам и нормативу</li>
+                        </ol>
+                      )}
                     </div>
                   )}
 
                   {(processing || analysis.uploading) && (
                     <div className="processing-body" aria-live="polite">
                       <div className="file-summary">
-                        <span className="file-summary-icon">
-                          <FileVideo size={23} />
-                        </span>
+                        {preview ? (
+                          <img className="file-summary-thumb" src={preview.thumb} alt="" />
+                        ) : (
+                          <span className="file-summary-icon">
+                            <FileVideo size={23} />
+                          </span>
+                        )}
                         <div>
-                          <strong>{file?.name}</strong>
+                          <strong>{file?.name ?? `Задача ${analysis.job?.id ?? ''}`}</strong>
                           <span>{file && fileSize(file.size)}</span>
                         </div>
                         {analysis.uploading ? (
@@ -426,7 +452,8 @@ export function App() {
                       </Button>
                       {processing && (
                         <p className="small-note">
-                          Возврат к загрузке не останавливает проверку на сервере.
+                          Можно закрыть вкладку: проверка продолжится на сервере, результат
+                          откроется по ссылке из адресной строки.
                         </p>
                       )}
                     </div>

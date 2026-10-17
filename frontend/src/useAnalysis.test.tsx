@@ -71,6 +71,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  window.history.replaceState(null, '', '/')
   clients.forEach((client) => client.clear())
   clients.length = 0
   onlineManager.setOnline(true)
@@ -432,4 +433,34 @@ describe('useAnalysis', () => {
       else expect(result.current.error?.message).toBe('Сервис недоступен.')
     },
   )
+})
+
+describe('useAnalysis job link', () => {
+  it('puts the job into the address after upload and clears it on reset', async () => {
+    const { result } = renderAnalysis()
+    await act(async () => {
+      await result.current.start(file, '')
+    })
+    expect(window.location.search).toBe('?job=job-1')
+    act(() => result.current.reset())
+    expect(window.location.search).toBe('')
+  })
+
+  it('resumes polling for the job named in the address after a reload', async () => {
+    window.history.replaceState(null, '', '/?job=abc-123')
+    vi.mocked(getJobDetails).mockResolvedValue(done('abc-123'))
+    const { result } = renderAnalysis()
+    await advance()
+    expect(getJobDetails).toHaveBeenCalledWith('abc-123', '', expect.any(AbortSignal))
+    expect(result.current.done).toBe(true)
+    expect(uploadVideo).not.toHaveBeenCalled()
+  })
+
+  it('ignores a malformed job id in the address', async () => {
+    window.history.replaceState(null, '', '/?job=../../etc')
+    const { result } = renderAnalysis()
+    await advance()
+    expect(result.current.job).toBeNull()
+    expect(getJobDetails).not.toHaveBeenCalled()
+  })
 })
