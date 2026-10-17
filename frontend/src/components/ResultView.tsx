@@ -268,7 +268,7 @@ export function ResultView({
       <div className="result-facts">
         {result.rules_checked !== undefined && (
           <span>
-            Проверено правил<strong className="mono">{result.rules_checked}</strong>
+            Проверено типов нарушений<strong className="mono">{result.rules_checked}</strong>
           </span>
         )}
         <span>

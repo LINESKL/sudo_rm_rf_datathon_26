@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import type { DoneDetails } from '@/api/contracts'
 import { Button } from '@/components/ui/button'
 import { timecode } from '@/lib/timecode'
@@ -27,6 +29,8 @@ export function Timeline({
   onEventSeek: (index: number) => void
   isHighlighted: (index: number) => boolean
 }) {
+  // Сырые покадровые состояния легко принять за вывод, поэтому они раскрываются по запросу.
+  const [statesOpen, setStatesOpen] = useState(false)
   const duration = result.duration_sec
   if (!Number.isFinite(duration) || duration <= 0) return null
 
@@ -115,70 +119,82 @@ export function Timeline({
           </div>
         </div>
       ))}
-      {rows.length > 0 && events.length > 0 && <hr className="timeline-divider" />}
-      {rows.map(({ key, intervals }, rowIndex) => {
-        const labels = result.timeline_labels
-        const serverLabel = labels && Object.hasOwn(labels, key) ? labels[key].trim() : ''
-        const label = serverLabel || FALLBACK_LABELS.get(key) || `Состояние ${rowIndex + 1}`
+      {rows.length > 0 && (
+        <Button
+          type="button"
+          variant="ghost"
+          className="timeline-toggle h-9 justify-start rounded-lg px-2 text-muted-foreground"
+          aria-expanded={statesOpen}
+          onClick={() => setStatesOpen(!statesOpen)}
+        >
+          <ChevronDown aria-hidden="true" className={statesOpen ? 'rotate-180' : ''} />
+          Состояния сцены ({rows.length})
+        </Button>
+      )}
+      {statesOpen &&
+        rows.map(({ key, intervals }, rowIndex) => {
+          const labels = result.timeline_labels
+          const serverLabel = labels && Object.hasOwn(labels, key) ? labels[key].trim() : ''
+          const label = serverLabel || FALLBACK_LABELS.get(key) || `Состояние ${rowIndex + 1}`
 
-        return (
-          <div className="timeline-row" role="group" aria-label={label} key={key}>
-            <h4 className="timeline-label">{label}</h4>
-            <div className="timeline-rail" aria-hidden="true">
-              {intervals.map(({ start, end, visibleStart, visibleEnd, overlap, hits }, index) => (
-                <span key={`${index}:${start}:${end}`}>
-                  <span
-                    className={`timeline-interval${overlap ? ' timeline-interval-overlap' : ''}`}
-                    title={`${label}: ${start}–${end} с от начала видео`}
-                    style={{
-                      left: `${(visibleStart / duration) * 100}%`,
-                      width: `${((visibleEnd - visibleStart) / duration) * 100}%`,
-                    }}
-                  />
-                  {hits.map(([from, to]) => (
+          return (
+            <div className="timeline-row" role="group" aria-label={label} key={key}>
+              <h4 className="timeline-label">{label}</h4>
+              <div className="timeline-rail" aria-hidden="true">
+                {intervals.map(({ start, end, visibleStart, visibleEnd, overlap, hits }, index) => (
+                  <span key={`${index}:${start}:${end}`}>
                     <span
-                      key={`${from}:${to}`}
-                      className="timeline-hit"
+                      className={`timeline-interval${overlap ? ' timeline-interval-overlap' : ''}`}
+                      title={`${label}: ${start}–${end} с от начала видео`}
                       style={{
-                        left: `${(from / duration) * 100}%`,
-                        width: `${((to - from) / duration) * 100}%`,
+                        left: `${(visibleStart / duration) * 100}%`,
+                        width: `${((visibleEnd - visibleStart) / duration) * 100}%`,
                       }}
                     />
-                  ))}
-                </span>
-              ))}
-              {cursor}
+                    {hits.map(([from, to]) => (
+                      <span
+                        key={`${from}:${to}`}
+                        className="timeline-hit"
+                        style={{
+                          left: `${(from / duration) * 100}%`,
+                          width: `${((to - from) / duration) * 100}%`,
+                        }}
+                      />
+                    ))}
+                  </span>
+                ))}
+                {cursor}
+              </div>
+              <div className="timeline-actions">
+                {intervals.map(({ start, end, overlap }, index) => {
+                  const current =
+                    cursorTime !== null &&
+                    cursorTime >= start &&
+                    (cursorTime < end || (cursorTime === duration && end >= duration))
+                  const exactInterval = `${label}: ${start}–${end} с от начала видео`
+                  return (
+                    <Button
+                      key={`${index}:${start}:${end}`}
+                      type="button"
+                      variant="ghost"
+                      className="timeline-jump mono"
+                      disabled={!canSeek}
+                      aria-label={`Перейти к состоянию ${exactInterval}${overlap ? '. Совпадает с событием' : ''}`}
+                      aria-current={current ? 'true' : undefined}
+                      title={exactInterval}
+                      data-overlap={overlap || undefined}
+                      onClick={() => onSeek(start)}
+                    >
+                      {timecode(start)}–{timecode(end)}
+                      {overlap && <span className="visually-hidden">Совпадает с событием</span>}
+                    </Button>
+                  )
+                })}
+              </div>
             </div>
-            <div className="timeline-actions">
-              {intervals.map(({ start, end, overlap }, index) => {
-                const current =
-                  cursorTime !== null &&
-                  cursorTime >= start &&
-                  (cursorTime < end || (cursorTime === duration && end >= duration))
-                const exactInterval = `${label}: ${start}–${end} с от начала видео`
-                return (
-                  <Button
-                    key={`${index}:${start}:${end}`}
-                    type="button"
-                    variant="ghost"
-                    className="timeline-jump mono"
-                    disabled={!canSeek}
-                    aria-label={`Перейти к состоянию ${exactInterval}${overlap ? '. Совпадает с событием' : ''}`}
-                    aria-current={current ? 'true' : undefined}
-                    title={exactInterval}
-                    data-overlap={overlap || undefined}
-                    onClick={() => onSeek(start)}
-                  >
-                    {timecode(start)}–{timecode(end)}
-                    {overlap && <span className="visually-hidden">Совпадает с событием</span>}
-                  </Button>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })}
-      {rows.length > 0 && (
+          )
+        })}
+      {statesOpen && (
         <p className="timeline-legend small-note">
           <span>
             <i className="timeline-swatch" /> состояние

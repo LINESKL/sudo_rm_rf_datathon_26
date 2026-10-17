@@ -822,8 +822,17 @@
     text-overflow: ellipsis;
   }
   .timeline-row-event .timeline-label {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-height: 1.3;
+    white-space: normal;
     color: var(--violation);
     font-weight: 600;
+  }
+  .timeline-toggle {
+    justify-self: start;
+    margin-top: 4px;
   }
   .timeline-rail {
     position: relative;

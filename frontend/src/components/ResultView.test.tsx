@@ -180,7 +180,7 @@ describe('ResultView', () => {
         serviceMode="pipeline"
       />,
     )
-    expect(screen.queryByText('Проверено правил')).not.toBeInTheDocument()
+    expect(screen.queryByText('Проверено типов нарушений')).not.toBeInTheDocument()
     expect(screen.getByText('Время обработки')).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Нарушение не обнаружено' })).toBeVisible()
   })
@@ -371,6 +371,7 @@ describe('ResultView review fixes', () => {
     })
     const view = render(<ResultView result={details} onReset={vi.fn()} serviceMode="pipeline" />)
     expect(screen.getByRole('region', { name: 'Лента времени' })).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: /^Состояния сцены/ }))
     const video = screen.getByLabelText<HTMLVideoElement>('Плеер загруженного видео')
     Object.defineProperty(video, 'readyState', { configurable: true, value: 1 })
     Object.defineProperty(video, 'duration', { configurable: true, value: details.duration_sec })
@@ -406,6 +407,7 @@ describe('ResultView review fixes', () => {
       />,
     )
     const section = screen.getByRole('region', { name: 'Лента времени' })
+    fireEvent.click(screen.getByRole('button', { name: /^Состояния сцены/ }))
     const video = screen.getByLabelText<HTMLVideoElement>('Плеер загруженного видео')
     Object.defineProperty(video, 'readyState', { configurable: true, value: 1 })
     video.currentTime = 3
@@ -683,5 +685,18 @@ describe('ResultView reviewer workflow', () => {
     await user.click(screen.getByRole('button', { name: 'Скопировать ссылку' }))
     expect(writeText).toHaveBeenCalledWith(window.location.href)
     expect(await screen.findByText('Ссылка скопирована')).toBeVisible()
+  })
+})
+
+describe('ResultView facts wording', () => {
+  it('reports how many violation types were checked', () => {
+    render(
+      <ResultView
+        result={result([], { rules_checked: 8 })}
+        onReset={vi.fn()}
+        serviceMode="pipeline"
+      />,
+    )
+    expect(screen.getByText('Проверено типов нарушений').closest('span')).toHaveTextContent('8')
   })
 })
