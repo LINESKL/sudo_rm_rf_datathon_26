@@ -20,9 +20,7 @@ from ml.verify import verify  # noqa: E402
 
 STAGE_HOOKS.append(verify)
 
-from ml.procedures import procedures_hook  # noqa: E402
-
-STAGE_HOOKS.insert(0, procedures_hook)
+# ponytail: procedure windows (ml/procedures.py) are off — 0 finds on 40 videos, a third of the GPU load.
 
 from ml.outsider import outsider_hook  # noqa: E402
 
@@ -73,7 +71,8 @@ def analyze(video_path, deadline_s: float = 240.0, on_progress=None, client=None
 
     progress("detect", 0.2)
     progress("scene", 0.3)
-    samples = sense(client, frames, workers=workers)
+    # The sensor gets at most half the budget (or all but 90 s): the zoom/window checks need the rest.
+    samples = sense(client, frames, workers=workers, stop_at=started + max(deadline_s * 0.5, deadline_s - 90))
     if frames and not samples:
         raise RuntimeError("VLM unavailable: no frame could be analysed (degraded)")
     degraded = not samples or len(samples) != len(frames)

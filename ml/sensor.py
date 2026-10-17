@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from ml.vlm import map_parallel
 
 _YNU = {"type": "string", "enum": ["yes", "no", "unknown"]}
@@ -41,12 +43,30 @@ Answer strictly about what is visible in THIS frame:
 Return JSON only."""
 
 
-def sense(client, frames, workers: int = 8) -> list[tuple[float, dict]]:
+def coarse_to_fine(n: int) -> list[int]:
+    """Frame order that covers the whole video first, then fills in: a cut-off keeps even coverage."""
+    order, seen, step = [], set(), 1
+    while step * 2 < n:
+        step *= 2
+    while step >= 1:
+        for i in range(0, n, step):
+            if i not in seen:
+                seen.add(i)
+                order.append(i)
+        step //= 2
+    return order
+
+
+def sense(client, frames, workers: int = 8, stop_at: float | None = None) -> list[tuple[float, dict]]:
+    """stop_at (time.monotonic): frames not started by then are skipped, so a queued job still answers in time."""
     required = set(STATE_SCHEMA["required"])
 
     def one(item):
         t, img = item
+        if stop_at is not None and time.monotonic() > stop_at:
+            return None
         ans = client.ask_json([img], STATE_PROMPT, STATE_SCHEMA, max_tokens=300)
         return (t, ans) if isinstance(ans, dict) and required <= set(ans) else None
 
-    return [r for r in map_parallel(one, frames, workers) if r is not None]
+    ordered = [frames[i] for i in coarse_to_fine(len(frames))]
+    return sorted((r for r in map_parallel(one, ordered, workers) if r is not None), key=lambda r: r[0])

@@ -49,3 +49,10 @@ def test_bad_camera_interval_suppresses_leave(tiny_video, fake_vlm_cls, monkeypa
     import ml.pipeline as p
     monkeypatch.setattr(p, "degraded_intervals", lambda ts, frames: [(0.0, 100.0)])
     assert p.analyze(tiny_video, client=_leaving_vlm(fake_vlm_cls), workers=1).verdict == "no_violation"
+
+
+def test_procedure_windows_not_in_default_stages():
+    # 40 videos: 0 finds, about a third of the GPU load
+    from ml.pipeline import STAGE_HOOKS
+    from ml.procedures import procedures_hook
+    assert procedures_hook not in STAGE_HOOKS

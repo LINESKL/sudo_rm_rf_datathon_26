@@ -26,7 +26,7 @@ def vlm_server():
             properties = body["response_format"]["json_schema"]["schema"]["properties"]
             stage = next(iter(properties))
             state["calls"].append((self.path, body["model"], stage))
-            if state["mode"] == "down" or (state["mode"] == "partial" and stage == "steps"):
+            if state["mode"] == "down" or (state["mode"] == "partial" and stage == "answer"):
                 self.send_error(503)
                 return
             if "cashier_present" in properties:
@@ -81,7 +81,7 @@ def test_real_pipeline_through_api(settings, tiny_video, vlm_server, monkeypatch
                 assert details["violations"][0]["type_id"] == "outsider_cashier_zone"
                 assert details["violations"][0]["rule"]["url"].startswith("https://")
             assert client.get(details["preview_url"], headers={"Range": "bytes=0-99"}).status_code == 206
-            assert {"cashier_present", "steps"} <= {c[2] for c in vlm_server["calls"]}  # open pass is off
+            assert {"cashier_present", "answer"} <= {c[2] for c in vlm_server["calls"]}  # sensor + outsider windows
         elif mode in ("partial", "partial_phone"):
             # Partial inference is delivered with a flag: a partial verdict beats "failed" for the jury.
             assert details["status"] == "done", details
