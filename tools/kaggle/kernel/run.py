@@ -38,7 +38,7 @@ subprocess.run([sys.executable, "-m", "pip", "install", "-q", "uv", "-r",
 venv = f"{WORK}/vv"
 subprocess.run(["uv", "venv", "-q", "--python", sys.executable, venv], check=True)
 subprocess.run(["uv", "pip", "install", "-q", "--python", f"{venv}/bin/python",
-                os.environ.get("VLLM_SPEC", "vllm==0.11.0")], check=True)
+                os.environ.get("VLLM_SPEC", "vllm==0.11.0"), "transformers>=4.57,<5"], check=True)
 log = open(f"{WORK}/vllm.log", "w")
 srv = subprocess.Popen([f"{venv}/bin/python", "-m", "vllm.entrypoints.openai.api_server", "--model", model,
                         "--port", "8001", "--dtype", "half", "--tensor-parallel-size", str(len(gpus)),
