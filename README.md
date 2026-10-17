@@ -75,7 +75,7 @@ npm --prefix frontend run format:check
 `demo-key`. Он не анализирует видео. Production не переключается на демо
 при ошибках API; серверная заглушка явно обозначена в результате.
 Все шрифты и ресурсы UI локальные. После `build:demo` обязательно выполните
-обычный `build` перед передачей сервису или Docker-сборкой.
+обычный `build` перед передачей локальному сервису. Docker собирает production UI самостоятельно.
 
 Бриф: [docs/frontend/BRIEF.md](docs/frontend/BRIEF.md).
 Результаты и границы проверки: [приёмка frontend](docs/frontend/acceptance.md),
@@ -121,7 +121,14 @@ docker run --rm -p 8000:8000 -e API_KEY -v cashguard-data:/workspace cashguard:s
 
 GPU-образ, запуск vLLM, RunPod, восстановление и проверка без сети:
 [deploy/README.md](deploy/README.md).
-Соберите фронт **до** `docker build`, чтобы `frontend/dist` попал в образ.
+Docker собирает production UI из исходников отдельным этапом Node 24.19.0
+(`npm ci` и `npm run build`). Локальный `frontend/dist` исключён из контекста,
+поэтому устаревшая или demo-сборка не попадёт в образ. Node нужен только при сборке.
+
+Образ с UI прошёл офлайн-приёмку 17.10.2026: загрузка MOV, результаты, JPEG,
+плеер/seek и обновление доступа в браузере; режим анализа — заглушка.
+Сценарий браузера использует `deploy/offline-browser.py` и контейнер с `--network none`.
+Результаты и границы проверки — [протокол frontend](docs/frontend/acceptance.md).
 
 CPU-образ проверен 17.10.2026: запуск с `--network none`, обработка исходного MOV
 28,72 МБ, шесть одновременных загрузок и сохранение результатов после рестарта.

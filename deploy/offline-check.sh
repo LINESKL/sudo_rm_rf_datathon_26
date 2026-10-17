@@ -72,6 +72,8 @@ if not isolated:
 PY
 docker exec "$name" bash -c 'exec "${BACKEND_PYTHON:-python3}" -m pip check' > "$output/pip-check.txt"
 docker exec "$name" bash -c \
+    'exec "${BACKEND_PYTHON:-python3}" -m deploy.frontend_check --output /workspace/offline-results/frontend.json'
+docker exec "$name" bash -c \
     'exec "${BACKEND_PYTHON:-python3}" -m deploy.acceptance --output /workspace/offline-results/acceptance.json "$@"' \
     bash --source "$source_kind" "${real_args[@]}" "/videos/$video_file"
 docker exec "$name" bash -c \

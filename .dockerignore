@@ -14,4 +14,8 @@ data
 **/*.mp4
 **/*.docx
 **/node_modules
+frontend/dist
+**/*.tsbuildinfo
+output
+.playwright-cli
 tests
