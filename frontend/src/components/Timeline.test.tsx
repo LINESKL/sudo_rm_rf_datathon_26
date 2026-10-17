@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import sampleDetails from '../../../docs/frontend/mock_details.json'
 import type { DoneDetails, Violation } from '@/api/contracts'
-import { StateTimeline } from './StateTimeline'
+import { Timeline } from './Timeline'
 
 function result(overrides: Partial<DoneDetails> = {}): DoneDetails {
   return {
@@ -18,6 +18,8 @@ function result(overrides: Partial<DoneDetails> = {}): DoneDetails {
   }
 }
 
+const eventProps = { onEventSeek: vi.fn(), isHighlighted: () => false }
+
 function event(start: number, end: number): Violation {
   return {
     ...sampleDetails.violations[0],
@@ -27,7 +29,7 @@ function event(start: number, end: number): Violation {
   }
 }
 
-describe('StateTimeline', () => {
+describe('Timeline', () => {
   const emptyStates: Partial<DoneDetails>[] = [
     {},
     { timeline: {} },
@@ -37,14 +39,22 @@ describe('StateTimeline', () => {
     { timeline: { cashier_present: [[10, 10.01]] } },
   ]
   it.each(emptyStates)('hides absent or visually empty scene states: %j', (overrides) => {
-    render(<StateTimeline result={result(overrides)} activeTime={null} canSeek onSeek={vi.fn()} />)
-    expect(screen.queryByRole('region', { name: 'Состояния сцены' })).not.toBeInTheDocument()
+    render(
+      <Timeline
+        result={result(overrides)}
+        activeTime={null}
+        canSeek
+        onSeek={vi.fn()}
+        {...eventProps}
+      />,
+    )
+    expect(screen.queryByRole('region', { name: 'Лента времени' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
   it('uses trimmed server labels, Russian fallbacks and anonymous names without exposing technical keys', () => {
     render(
-      <StateTimeline
+      <Timeline
         result={result({
           timeline: {
             cashier_present: [[0, 3]],
@@ -57,9 +67,10 @@ describe('StateTimeline', () => {
         activeTime={null}
         canSeek
         onSeek={vi.fn()}
+        {...eventProps}
       />,
     )
-    const section = screen.getByRole('region', { name: 'Состояния сцены' })
+    const section = screen.getByRole('region', { name: 'Лента времени' })
     expect(within(section).getByRole('group', { name: 'Кассир у рабочего места' })).toBeVisible()
     expect(within(section).getByRole('group', { name: 'Деньги на столе' })).toBeVisible()
     expect(within(section).getByRole('group', { name: 'Состояние 3' })).toBeVisible()
@@ -75,11 +86,12 @@ describe('StateTimeline', () => {
     ['constructor', 'Состояние 1'],
   ])('provides a readable fallback for %s', (key, label) => {
     render(
-      <StateTimeline
+      <Timeline
         result={result({ timeline: { [key]: [[1, 2]] }, timeline_labels: {} })}
         activeTime={null}
         canSeek
         onSeek={vi.fn()}
+        {...eventProps}
       />,
     )
     expect(screen.getByRole('group', { name: label })).toBeVisible()
@@ -89,11 +101,12 @@ describe('StateTimeline', () => {
     const user = userEvent.setup()
     const onSeek = vi.fn()
     render(
-      <StateTimeline
+      <Timeline
         result={result({ timeline: { cash_on_desk: [[1.234, 2.987]] } })}
         activeTime={null}
         canSeek
         onSeek={onSeek}
+        {...eventProps}
       />,
     )
     const jump = screen.getByRole('button', { name: /Деньги на столе.*1\.234.*2\.987/ })
@@ -108,11 +121,12 @@ describe('StateTimeline', () => {
     const user = userEvent.setup()
     const onSeek = vi.fn()
     render(
-      <StateTimeline
+      <Timeline
         result={result({ timeline: { cashier_present: [[3.125, 6]] } })}
         activeTime={null}
         canSeek
         onSeek={onSeek}
+        {...eventProps}
       />,
     )
     await user.tab()
@@ -125,11 +139,12 @@ describe('StateTimeline', () => {
     const user = userEvent.setup()
     const onSeek = vi.fn()
     render(
-      <StateTimeline
+      <Timeline
         result={result({ timeline: { cashier_present: [[1, 4]] } })}
         activeTime={null}
         canSeek={false}
         onSeek={onSeek}
+        {...eventProps}
       />,
     )
     const jump = screen.getByRole('button', { name: /Кассир на месте.*1.*4/ })
@@ -150,13 +165,17 @@ describe('StateTimeline', () => {
         ],
       },
     })
-    const view = render(<StateTimeline result={details} activeTime={2} canSeek onSeek={vi.fn()} />)
+    const view = render(
+      <Timeline result={details} activeTime={2} canSeek onSeek={vi.fn()} {...eventProps} />,
+    )
     const jumps = screen.getAllByRole('button')
     expect(jumps[0]).not.toHaveAttribute('aria-current')
     expect(jumps[1]).toHaveAttribute('aria-current', 'true')
     expect(jumps[2]).not.toHaveAttribute('aria-current')
 
-    view.rerender(<StateTimeline result={details} activeTime={10} canSeek onSeek={vi.fn()} />)
+    view.rerender(
+      <Timeline result={details} activeTime={10} canSeek onSeek={vi.fn()} {...eventProps} />,
+    )
     expect(jumps[1]).not.toHaveAttribute('aria-current')
     expect(jumps[2]).toHaveAttribute('aria-current', 'true')
   })
@@ -164,25 +183,28 @@ describe('StateTimeline', () => {
   it('positions the cursor proportionally and removes it when the position is unknown', () => {
     const details = result({ timeline: { cashier_present: [[0, 10]] } })
     const view = render(
-      <StateTimeline result={details} activeTime={2.5} canSeek onSeek={vi.fn()} />,
+      <Timeline result={details} activeTime={2.5} canSeek onSeek={vi.fn()} {...eventProps} />,
     )
-    const section = screen.getByRole('region', { name: 'Состояния сцены' })
+    const section = screen.getByRole('region', { name: 'Лента времени' })
     expect(section.querySelector('.timeline-cursor')).toHaveStyle({ left: '25%' })
     expect(screen.getByText(/Позиция видео:/)).toHaveTextContent('00:02,5')
     expect(section.querySelector('[aria-live]')).not.toBeInTheDocument()
 
-    view.rerender(<StateTimeline result={details} activeTime={null} canSeek onSeek={vi.fn()} />)
+    view.rerender(
+      <Timeline result={details} activeTime={null} canSeek onSeek={vi.fn()} {...eventProps} />,
+    )
     expect(section.querySelector('.timeline-cursor')).not.toBeInTheDocument()
     expect(screen.getByRole('button')).not.toHaveAttribute('aria-current')
   })
 
   it('clamps the visible rail and cursor while retaining the server interval end', () => {
     render(
-      <StateTimeline
+      <Timeline
         result={result({ timeline: { cash_on_desk: [[8, 10.01]] } })}
         activeTime={11}
         canSeek
         onSeek={vi.fn()}
+        {...eventProps}
       />,
     )
     const lane = screen.getByRole('group', { name: 'Деньги на столе' })
@@ -202,7 +224,7 @@ describe('StateTimeline', () => {
     'uses strict event overlap, including point events: %j',
     ({ eventStart, eventEnd, overlap }) => {
       render(
-        <StateTimeline
+        <Timeline
           result={result({
             verdict: 'violation',
             violations: [event(eventStart, eventEnd)],
@@ -211,13 +233,14 @@ describe('StateTimeline', () => {
           activeTime={null}
           canSeek
           onSeek={vi.fn()}
+          {...eventProps}
         />,
       )
       const lane = screen.getByRole('group', { name: 'Деньги на столе' })
       const span = lane.querySelector('.timeline-interval')
       if (overlap) {
         expect(span).toHaveClass('timeline-interval-overlap')
-        expect(screen.getByRole('button')).toHaveTextContent('Совпадает с событием')
+        expect(within(lane).getByRole('button')).toHaveTextContent('Совпадает с событием')
       } else {
         expect(span).not.toHaveClass('timeline-interval-overlap')
         expect(screen.queryByText('Совпадает с событием')).not.toBeInTheDocument()
@@ -234,11 +257,12 @@ describe('StateTimeline', () => {
       [1.002, 1.004],
     ]
     render(
-      <StateTimeline
+      <Timeline
         result={result({ timeline: { cash_on_desk: intervals } })}
         activeTime={null}
         canSeek
         onSeek={onSeek}
+        {...eventProps}
       />,
     )
     const lane = screen.getByRole('group', { name: 'Деньги на столе' })
@@ -254,15 +278,55 @@ describe('StateTimeline', () => {
 
   it('shows scene states for a clean verdict without treating them as violations', () => {
     render(
-      <StateTimeline
+      <Timeline
         result={result({ timeline: { screen_unlocked: [[1, 9]] } })}
         activeTime={null}
         canSeek
         onSeek={vi.fn()}
+        {...eventProps}
       />,
     )
     expect(screen.getByRole('group', { name: 'Экран разблокирован' })).toBeVisible()
     expect(screen.getByText(/сами по себе не означают нарушение/)).toBeVisible()
     expect(screen.queryByText('Совпадает с событием')).not.toBeInTheDocument()
+  })
+})
+
+describe('Timeline events', () => {
+  it('shows a marker per event even without scene states and seeks by index', async () => {
+    const user = userEvent.setup()
+    const onEventSeek = vi.fn()
+    render(
+      <Timeline
+        result={result({ verdict: 'violation', violations: [event(2.5, 5)], duration_sec: 10 })}
+        activeTime={null}
+        canSeek
+        onSeek={vi.fn()}
+        onEventSeek={onEventSeek}
+        isHighlighted={() => false}
+      />,
+    )
+    const marker = screen.getByRole('button', { name: /^Событие 1: .*, 00:02,5$/ })
+    expect(marker).toHaveStyle({ left: '25%', width: '25%' })
+    await user.click(marker)
+    expect(onEventSeek).toHaveBeenCalledExactlyOnceWith(0)
+  })
+
+  it('paints only the part of a state that intersects an event', () => {
+    render(
+      <Timeline
+        result={result({
+          verdict: 'violation',
+          violations: [event(3, 5)],
+          timeline: { cash_on_desk: [[2, 8]] },
+        })}
+        activeTime={null}
+        canSeek
+        onSeek={vi.fn()}
+        {...eventProps}
+      />,
+    )
+    const lane = screen.getByRole('group', { name: 'Деньги на столе' })
+    expect(lane.querySelector('.timeline-hit')).toHaveStyle({ left: '30%', width: '20%' })
   })
 })

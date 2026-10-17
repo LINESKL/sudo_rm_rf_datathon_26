@@ -37,15 +37,17 @@ export function demoApi(): Plugin {
   const jobs = new Map<string, { started: number; result: unknown }>()
   const middleware = (req: IncomingMessage, res: ServerResponse, next: () => void) => {
     if (req.url?.startsWith('/previews/')) return sendPreview(req, res)
-    if (req.url !== '/health' && !req.url?.startsWith('/api/')) return next()
+    if (req.url !== '/health' && !/^\/(api|ui)\//.test(req.url ?? '')) return next()
     const reply = (status: number, body: unknown) => {
       res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
       res.end(JSON.stringify(body))
     }
     if (req.method === 'GET' && req.url === '/health')
       return reply(200, { mode: process.env.DEMO_HEALTH_MODE ?? 'stub', status: 'ok' })
-    if (req.headers['x-api-key'] !== 'demo-key') return reply(401, { detail: 'Неверный API-ключ.' })
-    if (req.method === 'POST' && req.url === '/api/v1/analyze') {
+    // Интерфейс ходит в /ui/v1 без ключа (FAQ 27); /api/v1 для жюри требует ключ.
+    if (req.url?.startsWith('/api/') && req.headers['x-api-key'] !== 'demo-key')
+      return reply(401, { detail: 'Неверный API-ключ.' })
+    if (req.method === 'POST' && /^\/(api|ui)\/v1\/analyze$/.test(req.url ?? '')) {
       let bytes = 0
       let isClean = false
       req.on('data', (chunk: Buffer) => {
@@ -63,7 +65,7 @@ export function demoApi(): Plugin {
       })
       return
     }
-    const match = /^\/api\/v1\/jobs\/([^/]+)\/details$/.exec(req.url)
+    const match = /^\/(?:api|ui)\/v1\/jobs\/([^/]+)\/details$/.exec(req.url ?? '')
     if (req.method === 'GET' && match) {
       const job = jobs.get(match[1])
       if (!job) return reply(404, { detail: 'Проверка не найдена.' })

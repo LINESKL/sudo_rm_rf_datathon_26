@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => ({
         ? undefined
         : {
             '/api': 'http://127.0.0.1:8000',
+            '/ui': 'http://127.0.0.1:8000',
             '/previews': 'http://127.0.0.1:8000',
             '/health': 'http://127.0.0.1:8000',
           },

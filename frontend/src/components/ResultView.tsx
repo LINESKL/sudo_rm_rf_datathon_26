@@ -1,5 +1,7 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
+  ChevronLeft,
+  ChevronRight,
   CircleAlert,
   ExternalLink,
   ImageOff,
@@ -26,7 +28,7 @@ import { safePreviewUrl } from '@/api/client'
 import { timecode } from '@/lib/timecode'
 import { VideoPreview } from './VideoPreview'
 import type { VideoPreviewHandle } from './VideoPreview'
-import { StateTimeline } from './StateTimeline'
+import { Timeline } from './Timeline'
 
 function EvidenceImage({ frame, large = false }: { frame: EvidenceFrame; large?: boolean }) {
   const [failed, setFailed] = useState(false)
@@ -106,9 +108,6 @@ function EvidencePreview({
 
 const confidenceLabels = { low: 'низкая', medium: 'средняя', high: 'высокая' }
 
-const percentOf = (seconds: number, duration: number) =>
-  `${Math.max(0, Math.min(100, (seconds / duration) * 100))}%`
-
 export function ResultView({
   result,
   onReset,
@@ -149,6 +148,35 @@ export function ResultView({
     setSelected({ jobId: result.job_id, index })
     playerRef.current?.seek(Math.max(0, seconds - 1))
   }
+  const order = result.violations
+    .map((violation, index) => ({ index, time: violation.timecode_sec }))
+    .sort((a, b) => a.time - b.time)
+    .map(({ index }) => index)
+  function step(direction: 1 | -1) {
+    if (!canSeek || order.length === 0) return
+    const current = selected?.jobId === result.job_id ? order.indexOf(selected.index) : -1
+    const next =
+      current < 0
+        ? direction > 0
+          ? 0
+          : order.length - 1
+        : (current + direction + order.length) % order.length
+    seek(order[next], result.violations[order[next]].timecode_sec)
+  }
+  const stepRef = useRef(step)
+  useEffect(() => {
+    stepRef.current = step
+  })
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null
+      if (target?.closest('input, textarea, [contenteditable="true"]')) return
+      if (event.key === ']') stepRef.current(1)
+      if (event.key === '[') stepRef.current(-1)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
   const hasFindings = result.verdict === 'violation'
   const needsReview = result.degraded !== false || serviceMode !== 'pipeline'
   const duration = result.duration_sec
@@ -250,53 +278,40 @@ export function ResultView({
         onPositionChange={(time) => setPosition({ jobId: result.job_id, time })}
         onAvailabilityChange={(available) => setAvailability({ jobId: result.job_id, available })}
       />
-      {result.violations.length > 0 && duration > 0 && (
-        <div className="event-track" role="group" aria-label="События на шкале видео">
-          <div className="timeline-scale mono" aria-hidden="true">
-            <span>{timecode(0)}</span>
-            <span>{timecode(duration)}</span>
-          </div>
-          <div
-            className="event-track-rail"
-            style={{ height: `${result.violations.length * 32}px` }}
+      {order.length > 0 && (
+        <div className="event-nav">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 rounded-xl"
+            disabled={!canSeek}
+            aria-label="Предыдущее событие"
+            onClick={() => step(-1)}
           >
-            {result.violations.map((violation, index) => (
-              <Button
-                key={`${index}:${violation.type_id}`}
-                type="button"
-                variant="outline"
-                className="event-marker h-7 justify-start rounded-lg border-[var(--violation)]/45 bg-[var(--violation-bg)] px-2 text-xs text-[var(--violation)] shadow-none hover:bg-accent hover:text-[var(--violation)] disabled:opacity-100 data-[highlighted]:border-[var(--violation)] data-[highlighted]:bg-[var(--violation)] data-[highlighted]:text-white"
-                style={{
-                  top: `${index * 32}px`,
-                  left: percentOf(violation.timecode_sec, duration),
-                  width: percentOf(violation.timecode_end_sec - violation.timecode_sec, duration),
-                }}
-                disabled={!canSeek}
-                title={violation.type}
-                aria-label={`Событие ${index + 1}: ${violation.type}, ${timecode(violation.timecode_sec)}`}
-                aria-current={isActive(index) ? 'true' : undefined}
-                data-highlighted={isHighlighted(index) || undefined}
-                onClick={() => seek(index, violation.timecode_sec)}
-              >
-                <span className="mono">{index + 1}</span>
-                <span className="min-w-0 truncate font-normal">{violation.type}</span>
-              </Button>
-            ))}
-            {activeTime !== null && (
-              <span
-                className="timeline-cursor"
-                aria-hidden="true"
-                style={{ left: percentOf(activeTime, duration) }}
-              />
-            )}
-          </div>
+            <ChevronLeft aria-hidden="true" /> Предыдущее
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 rounded-xl"
+            disabled={!canSeek}
+            aria-label="Следующее событие"
+            onClick={() => step(1)}
+          >
+            Следующее событие <ChevronRight aria-hidden="true" />
+          </Button>
+          <span className="small-note">
+            Клавиши <kbd>[</kbd> и <kbd>]</kbd>
+          </span>
         </div>
       )}
-      <StateTimeline
+      <Timeline
         result={result}
         activeTime={activeTime}
         canSeek={canSeek}
         onSeek={(seconds) => playerRef.current?.seek(seconds)}
+        onEventSeek={(index) => seek(index, result.violations[index].timecode_sec)}
+        isHighlighted={isHighlighted}
       />
       {result.violations.map((violation, index) => (
         <Card

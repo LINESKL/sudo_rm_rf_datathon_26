@@ -252,6 +252,10 @@ describe('ResultView', () => {
     // Preview access refresh no longer needs a key, so it is a real tab stop now.
     expect(screen.getByRole('button', { name: /Обновить доступ к видео/ })).toHaveFocus()
     await user.tab()
+    expect(screen.getByRole('button', { name: 'Предыдущее событие' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Следующее событие' })).toHaveFocus()
+    await user.tab()
     expect(screen.getByRole('button', { name: 'Событие 1: Событие 1, 00:08,6' })).toHaveFocus()
     await user.tab()
     expect(screen.getByRole('button', { name: 'Перейти к событию 1, 8.625 с' })).toHaveFocus()
@@ -362,16 +366,22 @@ describe('ResultView review fixes', () => {
       timeline_labels: { cash_on_desk: 'Деньги на столе' },
     })
     const view = render(<ResultView result={details} onReset={vi.fn()} serviceMode="pipeline" />)
-    const section = screen.getByRole('region', { name: 'Состояния сцены' })
+    expect(screen.getByRole('region', { name: 'Лента времени' })).toBeVisible()
     const video = screen.getByLabelText<HTMLVideoElement>('Плеер загруженного видео')
     Object.defineProperty(video, 'readyState', { configurable: true, value: 1 })
     Object.defineProperty(video, 'duration', { configurable: true, value: details.duration_sec })
-    await user.click(within(section).getByRole('button'))
+    await user.click(
+      within(screen.getByRole('group', { name: 'Деньги на столе' })).getByRole('button'),
+    )
     expect(video.currentTime).toBe(2.625)
-    expect(within(section).getByRole('button')).toHaveAttribute('aria-current', 'true')
+    expect(
+      within(screen.getByRole('group', { name: 'Деньги на столе' })).getByRole('button'),
+    ).toHaveAttribute('aria-current', 'true')
     video.currentTime = 12
     fireEvent.timeUpdate(video)
-    expect(within(section).getByRole('button')).not.toHaveAttribute('aria-current', 'true')
+    expect(
+      within(screen.getByRole('group', { name: 'Деньги на столе' })).getByRole('button'),
+    ).not.toHaveAttribute('aria-current', 'true')
     view.rerender(
       <ResultView
         result={{ ...details, job_id: 'next-scene-job' }}
@@ -391,14 +401,18 @@ describe('ResultView review fixes', () => {
         serviceMode="pipeline"
       />,
     )
-    const section = screen.getByRole('region', { name: 'Состояния сцены' })
+    const section = screen.getByRole('region', { name: 'Лента времени' })
     const video = screen.getByLabelText<HTMLVideoElement>('Плеер загруженного видео')
     Object.defineProperty(video, 'readyState', { configurable: true, value: 1 })
     video.currentTime = 3
     fireEvent.timeUpdate(video)
-    expect(within(section).getByRole('button')).toHaveAttribute('aria-current', 'true')
+    expect(
+      within(screen.getByRole('group', { name: 'Деньги на столе' })).getByRole('button'),
+    ).toHaveAttribute('aria-current', 'true')
     fireEvent.error(video)
-    expect(within(section).getByRole('button')).toBeDisabled()
+    expect(
+      within(screen.getByRole('group', { name: 'Деньги на столе' })).getByRole('button'),
+    ).toBeDisabled()
     expect(section.querySelector('.timeline-cursor')).not.toBeInTheDocument()
     expect(screen.getByRole('article', { name: 'Событие 1: Событие 1' })).toBeVisible()
     expect(screen.getByAltText('Кадр-доказательство на 8.625 с')).toBeVisible()
@@ -552,5 +566,36 @@ describe('ResultView polish', () => {
     expect(screen.getByRole('article', { name: 'Событие 1: Событие 1' })).toHaveClass(
       'event-current',
     )
+  })
+})
+
+describe('ResultView event navigation', () => {
+  it('steps through events in time order with buttons and wraps around', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    render(
+      <ResultView
+        result={result([
+          event(0, { timecode_sec: 12, timecode_end_sec: 13 }),
+          event(1, { timecode_sec: 4, timecode_end_sec: 5 }),
+        ])}
+        onReset={vi.fn()}
+        serviceMode="pipeline"
+      />,
+    )
+    const video = screen.getByLabelText<HTMLVideoElement>('Плеер загруженного видео')
+    Object.defineProperty(video, 'readyState', { configurable: true, value: 1 })
+    const next = screen.getByRole('button', { name: 'Следующее событие' })
+    await user.click(next)
+    expect(video.currentTime).toBe(3)
+    expect(screen.getByRole('article', { name: 'Событие 2: Событие 2' })).toHaveClass(
+      'event-current',
+    )
+    await user.click(next)
+    expect(video.currentTime).toBe(11)
+    await user.click(next)
+    expect(video.currentTime).toBe(3)
+    await user.click(screen.getByRole('button', { name: 'Предыдущее событие' }))
+    expect(video.currentTime).toBe(11)
   })
 })
