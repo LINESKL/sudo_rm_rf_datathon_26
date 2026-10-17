@@ -61,9 +61,13 @@ curl http://localhost:8000/api/v1/jobs/JOB_ID/details -H "X-API-Key: $API_KEY"
 Причина ошибки доступна в `/details.error`, поля UI — только в `/details`.
 Эталон UI: [моки](docs/frontend/), [спецификация](docs/superpowers/specs/2026-10-17-cashguard-design.md).
 
-Превью доступны по непредсказуемому URL `/previews/<32-символьный-id>.mp4`
-без заголовка авторизации, чтобы работал обычный `<video src>`. Этот URL является
-ссылкой доступа к видео; исходники через HTTP не раздаются. Range-запросы поддерживаются.
+Превью `/previews/<32-символьный-id>.mp4` защищены. Успешный `/details`
+выдаёт HttpOnly cookie на одно видео на 15 минут; обычный `<video src>` на том же
+origin отправляет её автоматически. Один URL без cookie не даёт доступа (`401`).
+Для curl допустим `X-API-Key`; основной ключ не передаётся в URL.
+Поддерживаются GET, HEAD и Range; ответы не кешируются. При истечении cookie
+нужно повторить `/details` с ключом. За HTTPS-прокси задайте `MEDIA_COOKIE_SECURE=1`.
+Интеграция фронтенда: [контракт media и неполных нормативов](docs/frontend/backend-integration.md).
 
 ## Docker
 
@@ -121,10 +125,19 @@ ML использует `VLM_BASE_URL=http://localhost:8001/v1` и `VLM_MODEL=<�
 ```bash
 pip install -r requirements-dev.txt
 python -m pytest -q
+python -m deploy.acceptance --url http://localhost:8000 --source dataset sample.mov
 python deploy/loadtest.py --url http://localhost:8000 sample.mov
 # При приёмке реального пайплайна:
 python deploy/loadtest.py --url https://YOUR_HOST --require-real a.mov b.mov c.mov d.mov e.mov f.mov
 ```
+
+`deploy.acceptance` проверяет загрузку одного ролика через HTTP, согласованность
+обоих ответов, JPEG, закрытый доступ к media, HEAD/Range, H.264/yuv420p и faststart.
+Нужны `API_KEY` и `ffprobe` в PATH (или `FFPROBE_BIN`).
+Отчёт — `test-results/acceptance-http.json`; в нём нет ключей, cookie или кадров.
+Для сгенерированного видео укажите `--source synthetic`; для настоящего ML добавьте
+`--require-real` (заглушка и `degraded` не проходят). Проверка качества ML и
+воспроизведения браузером проводится отдельно: HTTP-скрипт их не подтверждает.
 
 Нагрузочный скрипт отправляет шесть запросов одновременно, считает время от
 начала загрузки, сохраняет ответы и `summary.json` в `test-results/loadtest`.

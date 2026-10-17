@@ -8,13 +8,14 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import httpx
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 
 from .auth import APIBoundary, require_api_key
 from .config import Settings
 from .lock import queue_lock
+from .media import authorize_preview, issue_preview_cookie
 from .queue import JobQueue
 from .schemas import JobCreated, JobDetails, JobResult
 from .store import Store
@@ -49,6 +50,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(APIBoundary, api_key=settings.api_key, max_upload_bytes=settings.max_upload_bytes)
     # Outer CORS middleware also handles preflight requests without API credentials.
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins),
+                       allow_credentials=True,
                        allow_methods=["GET", "HEAD", "POST", "OPTIONS"],
                        allow_headers=["X-API-Key", "Content-Type", "Range"],
                        expose_headers=["Content-Range", "Accept-Ranges", "Content-Length"])
@@ -90,19 +92,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return row
 
     @api.get("/jobs/{job_id}", response_model=JobResult, response_model_exclude_none=True)
-    async def job(job_id: str):
+    async def job(job_id: str, response: Response):
+        response.headers["Cache-Control"] = "no-store"
         return store.judge(get_job(job_id))
 
     @api.get("/jobs/{job_id}/details", response_model=JobDetails, response_model_exclude_unset=True)
-    async def details(job_id: str):
+    async def details(job_id: str, request: Request, response: Response):
         data = json.loads(get_job(job_id)["details_json"])
+        response.headers["Cache-Control"] = "no-store"
+        if data["status"] == "done" and data.get("preview_url"):
+            issue_preview_cookie(response, request, job_id, settings)
         # Preserve rule:null on cards while omitting not-yet-known top-level fields.
         return JobDetails.model_validate({key: value for key, value in data.items() if value is not None})
 
     app.include_router(api)
 
-    @app.get("/previews/{filename}", include_in_schema=False)
-    async def preview(filename: str):
+    @app.api_route("/previews/{filename}", methods=["GET", "HEAD"], include_in_schema=False)
+    async def preview(filename: str, request: Request):
+        # Check credentials even before existence/identifier errors to prevent disclosure.
+        authorize_preview(request, filename.removesuffix(".mp4"), settings)
         try:
             identifier = filename.removesuffix(".mp4")
             if filename != f"{UUID(identifier).hex}.mp4":
@@ -113,7 +121,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         path = settings.data_dir / "previews" / filename
         if not row or row["status"] != "done" or not path.is_file():
             raise HTTPException(404, "Превью ещё не готово")
-        return FileResponse(path, media_type="video/mp4", headers={"Cache-Control": "private, max-age=3600"})
+        return FileResponse(path, media_type="video/mp4", headers={
+            "Cache-Control": "no-store", "Vary": "Cookie, X-API-Key", "X-Content-Type-Options": "nosniff",
+        })
 
     @app.get("/health")
     async def health():

@@ -76,6 +76,9 @@ class Store:
             details.duration_sec = row["duration_sec"]
         if details.processing_sec is None:
             details.processing_sec = max(0, now - row["started_at"])
+        # Revalidate after filling source duration: serializers may omit it.
+        result = JobOutput.model_validate(result.model_dump())
+        details = result.details
         with self.connection() as conn:
             conn.execute("""UPDATE jobs SET status='done', finished_at=?, result_json=?,
                          details_json=?, error=NULL WHERE id=?""",

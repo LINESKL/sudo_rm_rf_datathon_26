@@ -59,6 +59,7 @@ def test_auth_validation_cors_and_spa(settings, video):
                                   "Access-Control-Request-Headers": "X-API-Key"})
         assert response.status_code == 200
         assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+        assert response.headers["access-control-allow-credentials"] == "true"
         assert "Frontend fixture" in client.get("/").text
         assert "Frontend fixture" in client.get("/results/example").text
         assert client.get("/missing.js").status_code == 404
@@ -145,8 +146,9 @@ def test_timeout_kills_tree_and_next_job_runs(settings, video):
         assert wait_done(client, second)[0]["status"] == "done"
 
 
-def test_pipeline_failure_does_not_kill_worker(settings, video):
-    app = create_app(replace(settings, analyzer="tests.analyzers:broken", workers=1))
+@pytest.mark.parametrize("analyzer", ["broken", "inconsistent"])
+def test_pipeline_failure_does_not_kill_worker(settings, video, analyzer):
+    app = create_app(replace(settings, analyzer=f"tests.analyzers:{analyzer}", workers=1))
     with TestClient(app) as client:
         job_id = submit(client, video)
         assert wait_done(client, job_id)[0]["status"] == "failed"

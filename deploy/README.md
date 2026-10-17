@@ -91,6 +91,9 @@ bash deploy/offline-check.sh
    HTTP-порт: **8000**; 8001 наружу не открывать.
 4. В Connect взять HTTPS-ссылку на 8000. Обычно она имеет вид
    `https://<pod-id>-8000.proxy.runpod.net`; фактический адрес берётся из панели.
+   Задать `MEDIA_COOKIE_SECURE=1`: доступ к превью выдаётся cookie из `/details`.
+   UI и API должны быть на одном origin; схема для разработки описана в
+   [интеграционном контракте](../docs/frontend/backend-integration.md).
 5. Проверить `/health`, затем запустить `deploy/loadtest.py --url <URL>` с внешней машины.
    После подключения ML повторить с `--require-real` и шестью разными роликами.
 6. Перезапустить под и проверить сохранённый `done` и восстановление `processing`.
@@ -113,6 +116,16 @@ HTTP-прокси отдельно; локальная поддержка это
 - Проверка offline проведена на том же образе и весах, что будут сданы.
 - Версия модели, ревизия весов, лицензии и нормативы подтверждены ML-командой.
 - URL и секретный ключ переданы жюри; ключ не помещён в публичный Git.
+
+Перед нагрузкой проверить один исходный MOV:
+
+```bash
+python -m deploy.acceptance --url https://YOUR_HOST --source dataset --require-real sample.mov
+```
+
+Сохранить отчёт, commit SHA, digest образа, ревизию весов и версии браузеров в
+протоколе приёмки. Для запуска заглушки убрать только `--require-real`.
+HTTP-успех не заменяет проверку Safari, F2/F3 и качества детектора.
 
 Справка: [Docker в vLLM](https://docs.vllm.ai/en/stable/deployment/docker/),
 [RunPod HTTP proxy](https://docs.runpod.io/pods/configuration/expose-ports).

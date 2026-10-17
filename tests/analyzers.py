@@ -25,6 +25,17 @@ def broken(video_path, deadline_s, on_progress):
     raise RuntimeError("fixture failure")
 
 
+def inconsistent(video_path, deadline_s, on_progress):
+    class Result:
+        def to_jury(self, job_id):
+            return {"job_id": job_id, "status": "done", "verdict": "no_violation", "violations": []}
+
+        def to_details(self, job_id, preview_url):
+            return {"job_id": job_id, "status": "done", "verdict": "violation", "violations": [],
+                    "preview_url": preview_url}
+    return Result()
+
+
 def ml_contract(video_path, *, deadline_s, on_progress):
     """Independent result type: the backend must use serializers, not its own model."""
     Path(video_path).with_suffix(".contract.json").write_text(json.dumps({

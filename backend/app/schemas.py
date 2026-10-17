@@ -1,10 +1,24 @@
+import base64
+import binascii
+from io import BytesIO
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from PIL import Image, UnidentifiedImageError
+from pydantic import BaseModel, ConfigDict, Field, AfterValidator, field_validator, model_validator
 
 Seconds = Annotated[float, Field(ge=0, allow_inf_nan=False)]
 Verdict = Literal["violation", "no_violation"]
 Status = Literal["processing", "done", "failed"]
+
+
+def nonblank(value: str) -> str:
+    if not value.strip():
+        raise ValueError("Text must not be empty")
+    return value
+
+
+Text = Annotated[str, AfterValidator(nonblank)]
 
 
 class Model(BaseModel):
@@ -13,30 +27,53 @@ class Model(BaseModel):
 
 class EvidenceFrame(Model):
     timestamp_sec: Seconds
-    image_base64: str
+    image_base64: str = Field(max_length=14_000_000)
+
+    @field_validator("image_base64")
+    @classmethod
+    def valid_jpeg(cls, value):
+        try:
+            data = base64.b64decode(value, validate=True)
+            if not data.startswith(b"\xff\xd8") or not data.endswith(b"\xff\xd9"):
+                raise ValueError("Evidence must contain a complete JPEG")
+            with Image.open(BytesIO(data)) as image:
+                if image.format != "JPEG" or image.width * image.height > 20_000_000:
+                    raise ValueError("Evidence must be a JPEG up to 20 megapixels")
+                image.load()
+        except (binascii.Error, OSError, UnidentifiedImageError, Image.DecompressionBombError) as exc:
+            raise ValueError("Evidence is not a decodable JPEG") from exc
+        return value
 
 
 class Violation(Model):
-    type: str
+    type: Text
     timecode_sec: Seconds
-    description: str
+    description: Text
     evidence_frames: list[EvidenceFrame] = Field(min_length=1, max_length=3)
 
 
 class Rule(Model):
-    document: str
-    point: str
-    quote: str
+    document: Text
+    point: Text | None = None
+    quote: Text | None = None
     url: str
+
+    @field_validator("url")
+    @classmethod
+    def safe_source_url(cls, value):
+        parsed = urlsplit(value)
+        if parsed.scheme not in {"https", "http"} or not parsed.hostname or parsed.username or parsed.password:
+            raise ValueError("Source URL must be an absolute HTTP(S) URL without credentials")
+        return value
 
 
 class DetailedViolation(Violation):
-    type_id: str
+    type_id: Text
     timecode_end_sec: Seconds
     confidence: float = Field(ge=0, le=1, allow_inf_nan=False)
     confidence_level: Literal["low", "medium", "high"]
-    observed: str
-    why: str
+    observed: Text
+    why: Text
     rule: Rule | None = None
 
     @model_validator(mode="after")
@@ -136,4 +173,15 @@ class JobOutput(Model):
                      for v in details.violations]
         if projected != jury.violations:
             raise ValueError("Analyzer serializers disagree on violations")
+        if any(end < start for intervals in (details.timeline or {}).values() for start, end in intervals):
+            raise ValueError("Timeline end precedes start")
+        if details.duration_sec is not None:
+            # Serializers round times to hundredths; tolerate only that rounding.
+            limit = details.duration_sec + .01
+            for violation in details.violations:
+                if violation.timecode_end_sec > limit or any(f.timestamp_sec > limit for f in violation.evidence_frames):
+                    raise ValueError("Evidence or event timestamp exceeds video duration")
+            for intervals in (details.timeline or {}).values():
+                if any(end < start or end > limit for start, end in intervals):
+                    raise ValueError("Timeline interval is outside the video")
         return self
