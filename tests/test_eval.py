@@ -107,3 +107,17 @@ def test_run_eval_cache_offline_and_dev_set(tmp_path, monkeypatch):
                                      "--cache", str(tmp_path / "c"), "--offline", "--set", "dev"])
     run_eval.main()
     assert seen == [(str(tmp_path / "c"), "1")]  # only Х-28 is in the dev set
+
+
+def test_event_metrics_multiple_tolerances():
+    rows = [
+        {"name": "a", "violation": True, "times": [10.0], "pred_verdict": "violation", "pred_times": [11.5, 30.0], "sec": 1},
+        {"name": "b", "violation": True, "times": [5.0], "pred_verdict": "violation", "pred_times": [9.0], "sec": 1},
+        {"name": "c", "violation": False, "times": [], "pred_verdict": "violation", "pred_times": [3.0, 4.0], "sec": 1},
+        {"name": "d", "violation": False, "times": [], "pred_verdict": "no_violation", "pred_times": [], "sec": 1},
+    ]
+    s = score(rows)
+    assert s["hit@1s"] == 0.0 and s["hit@2s"] == 0.5 and s["hit@5s"] == 1.0
+    # predicted events on violation videos that match some label within 5 s: 11.5 and 9.0 of 3 events
+    assert abs(s["event_precision@5s"] - 2 / 3) < 1e-9
+    assert s["fp_events_per_clean"] == 1.0  # 2 false events over 2 clean videos

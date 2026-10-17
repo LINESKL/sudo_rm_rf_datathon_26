@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 
@@ -40,9 +41,10 @@ class VLMClient:
         answer = self._ask(images, prompt, schema, max_tokens)
         if cache and answer is not None:
             os.makedirs(os.path.dirname(cache), exist_ok=True)
-            with open(cache + ".tmp", "w", encoding="utf-8") as f:
+            tmp = f"{cache}.{os.getpid()}.{threading.get_ident()}.tmp"  # unique per writer: same key may race
+            with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(answer, f, ensure_ascii=False)
-            os.replace(cache + ".tmp", cache)
+            os.replace(tmp, cache)
         return answer
 
     def _ask(self, images, prompt: str, schema: dict, max_tokens: int) -> dict | None:

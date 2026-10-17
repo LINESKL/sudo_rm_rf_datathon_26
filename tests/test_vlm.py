@@ -71,3 +71,19 @@ def test_cache_only_mode_never_calls_network(monkeypatch, tmp_path):
     monkeypatch.setenv("VLM_CACHE_DIR", str(tmp_path))
     monkeypatch.setenv("VLM_CACHE_ONLY", "1")
     assert VLMClient("http://x/v1", "m").ask_json([], "q", {}) is None
+
+
+def test_cache_survives_concurrent_identical_requests(monkeypatch, tmp_path):
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    def slow_post(self, *a, **k):
+        time.sleep(0.05)
+        return _Resp('{"ok": 1}')
+    monkeypatch.setattr(requests.Session, "post", slow_post)
+    monkeypatch.setenv("VLM_CACHE_DIR", str(tmp_path))
+    img = Image.new("RGB", (8, 8)); img.info["src"] = "same@1@464"
+    c = VLMClient("http://x/v1", "m")
+    with ThreadPoolExecutor(8) as ex:
+        results = list(ex.map(lambda _: c.ask_json([img], "q", {}), range(8)))
+    assert results == [{"ok": 1}] * 8

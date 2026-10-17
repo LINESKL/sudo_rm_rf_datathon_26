@@ -13,6 +13,8 @@ VERIFY_SCHEMA = {
     "required": ["answer", "what_is_visible"],
 }
 
+UNCLEAR_CONFIDENCE = 0.4  # below pipeline.MIN_CONFIDENCE: unverified finds are not reported
+
 _PROMPT = ("Frames from overhead CCTV of a bank cashier room, in time order ({times}).\n"
            "Question: {q}\nAnswer yes, no or unclear and briefly describe what is visible.")
 
@@ -31,8 +33,8 @@ def verify(cands, scene, client, video_path, time_left, workers: int = 4):
         frames = sample_frames(video_path, [c.t - 1.0, c.t + 0.5, c.t + 2.0, min(c.t_end, c.t + 4.0)])
         ans = _ask(client, frames, q)
         if ans == "unclear":
-            votes = [ans, _ask(client, frames, q), _ask(client, frames, q)]
-            ans = "yes" if votes.count("yes") >= 2 else "no" if votes.count("no") >= 2 else "unclear"
+            # Not a confirmation. Re-asking is pointless at temperature 0 (same answer every time).
+            return replace(c, confidence=min(c.confidence, UNCLEAR_CONFIDENCE))
         violation_answer = cat[c.type_id].get("violation_answer", "yes")
         if ans in ("yes", "no") and ans != violation_answer:
             return None

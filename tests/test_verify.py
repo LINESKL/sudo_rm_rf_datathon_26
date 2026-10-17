@@ -5,7 +5,7 @@ import pytest
 def test_verify_filters(tiny_video, fake_vlm_cls):
     answers = {"phone_use": "no", "personal_items": "yes", "eating_drinking": "unclear"}
     def responder(imgs, prompt):
-        for k, q in (("phone_use", "smartphone"), ("personal_items", "handbag"), ("eating_drinking", "eating")):
+        for k, q in (("phone_use", "smartphone"), ("personal_items", "handbag"), ("eating_drinking", "mouth")):
             if q in prompt:
                 return {"answer": answers[k], "what_is_visible": "x"}
     cands = [Candidate("phone_use", 1.0, 2.0, 0.7), Candidate("personal_items", 1.0, 3.0, 0.75),
@@ -13,7 +13,9 @@ def test_verify_filters(tiny_video, fake_vlm_cls):
     out = {c.type_id: c for c in verify(cands, None, fake_vlm_cls(responder), tiny_video, 100.0)}
     assert "phone_use" not in out
     assert abs(out["personal_items"].confidence - 0.9) < 1e-9
-    assert "eating_drinking" in out and out["eating_drinking"].confidence <= 0.7
+    # unclear after 3 votes is not a confirmation: it must fall below MIN_CONFIDENCE
+    from ml.pipeline import MIN_CONFIDENCE
+    assert "eating_drinking" in out and out["eating_drinking"].confidence < MIN_CONFIDENCE
 
 def test_verify_vlm_none_keeps(tiny_video, fake_vlm_cls):
     c = [Candidate("phone_use", 1.0, 2.0, 0.7)]
