@@ -46,10 +46,14 @@ describe('ResultView', () => {
       count ? `Обнаружены признаки возможных нарушений: ${count}` : 'Нарушение не обнаружено',
     )
     expect(screen.queryAllByRole('heading', { level: 4 })).toHaveLength(count)
-    for (const violation of violations) {
-      expect(screen.getByRole('heading', { name: violation.type })).toBeVisible()
-      expect(screen.getByText(violation.observed)).toBeVisible()
-      expect(screen.getByText(violation.why)).toBeVisible()
+    expect(screen.queryAllByRole('article')).toHaveLength(count)
+    for (const [index, violation] of violations.entries()) {
+      const article = screen.getByRole('article', {
+        name: `Событие ${index + 1}: ${violation.type}`,
+      })
+      expect(within(article).getByRole('heading', { name: violation.type })).toBeVisible()
+      expect(within(article).getByText(violation.observed)).toBeVisible()
+      expect(within(article).getByText(violation.why)).toBeVisible()
     }
     if (!count) expect(screen.queryByText('Что видно')).not.toBeInTheDocument()
   })
@@ -91,7 +95,7 @@ describe('ResultView', () => {
     await user.click(screen.getByText('Фрагмент документа'))
     expect(screen.getByText(quote.trim())).toBeVisible()
     expect(screen.getByText('п. 20')).toBeVisible()
-    const link = screen.getByRole('link', { name: 'Открыть источник' })
+    const link = screen.getByRole('link', { name: 'Открыть источник: Открытый норматив РК' })
     expect(link).toHaveAttribute('href', 'https://adilet.zan.kz/rus/docs/example')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
@@ -112,7 +116,9 @@ describe('ResultView', () => {
       <ResultView result={result([event(0, { rule })])} onReset={vi.fn()} serviceMode="pipeline" />,
     )
     expect(screen.getByText(rule.document)).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Открыть источник' })).toHaveAttribute('href', rule.url)
+    expect(
+      screen.getByRole('link', { name: `Открыть источник: ${rule.document}` }),
+    ).toHaveAttribute('href', rule.url)
     expect(screen.queryByText('Фрагмент документа')).not.toBeInTheDocument()
     expect(screen.queryByText('п. 20')).not.toBeInTheDocument()
     expect(screen.queryByText(/Источник не указан/)).not.toBeInTheDocument()
@@ -123,9 +129,39 @@ describe('ResultView', () => {
       <ResultView result={result([event(0, { rule })])} onReset={vi.fn()} serviceMode="pipeline" />,
     )
     expect(screen.getByText('Источник не указан, требуется проверка.')).toBeVisible()
-    expect(screen.queryByRole('link', { name: 'Открыть источник' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^Открыть источник/ })).not.toBeInTheDocument()
     expect(screen.getByText('Что видно')).toBeVisible()
     expect(screen.getByText('Почему это может быть нарушением')).toBeVisible()
+  })
+
+  it('distinguishes repeated event types and source links by their accessible names', () => {
+    const violations = [
+      event(0, {
+        type: 'Кассир покинул рабочее место',
+        rule: {
+          document: 'Правила кассовых операций РК',
+          url: 'https://adilet.zan.kz/rus/docs/first',
+        },
+      }),
+      event(1, {
+        type: 'Кассир покинул рабочее место',
+        rule: {
+          document: 'Инструкция по хранению ценностей',
+          url: 'https://adilet.zan.kz/rus/docs/second',
+        },
+      }),
+    ]
+    render(<ResultView result={result(violations)} onReset={vi.fn()} serviceMode="pipeline" />)
+
+    for (const [index, violation] of violations.entries()) {
+      const article = screen.getByRole('article', {
+        name: `Событие ${index + 1}: ${violation.type}`,
+      })
+      const link = within(article).getByRole('link', {
+        name: `Открыть источник: ${violation.rule!.document}`,
+      })
+      expect(link).toHaveAttribute('href', violation.rule!.url)
+    }
   })
 
   it('does not invent a zero rule count when the service omits it', () => {
@@ -198,6 +234,7 @@ describe('ResultView', () => {
   })
 
   it('opens evidence with Enter, closes with Escape and restores trigger focus', async () => {
+    const consoleError = vi.spyOn(console, 'error')
     const user = userEvent.setup()
     render(<ResultView result={result([event()])} onReset={vi.fn()} serviceMode="pipeline" />)
     const trigger = screen.getByRole('button', { name: 'Увеличить кадр 1 события 1, 8.625 с' })
@@ -210,6 +247,8 @@ describe('ResultView', () => {
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await waitFor(() => expect(trigger).toHaveFocus())
+    expect(consoleError).not.toHaveBeenCalled()
+    consoleError.mockRestore()
   })
 
   it('starts the new-video flow through the reset button', async () => {
@@ -220,7 +259,6 @@ describe('ResultView', () => {
     expect(onReset).toHaveBeenCalledOnce()
   })
 })
-
 
 describe('ResultView review fixes', () => {
   it('shows an unconfirmed clean result as neutral review, not as a violation', () => {

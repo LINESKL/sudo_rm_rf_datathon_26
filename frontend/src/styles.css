@@ -58,6 +58,7 @@
   --radius-2xl: calc(var(--radius) + 12px);
 }
 :root {
+  color-scheme: only light;
   font-family: 'Open Sans', sans-serif;
   color: var(--foreground);
   background: var(--background);
@@ -81,7 +82,7 @@
   --accent-foreground: var(--primary);
   --destructive: #9c3d13;
   --border: #e7e3e5;
-  --input: #c7bdc2;
+  --input: #95858d;
   --ring: #a31551;
   --brand: var(--ring);
   --bg: var(--background);
@@ -792,6 +793,8 @@
   .rule-quote summary {
     cursor: pointer;
     color: var(--brand);
+    min-height: 32px;
+    padding-block: 4px;
   }
   .rule-quote blockquote {
     margin-top: 12px;
