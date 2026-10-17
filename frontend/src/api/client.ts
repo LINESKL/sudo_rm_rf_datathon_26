@@ -128,6 +128,12 @@ function isPreviewUrl(value: unknown): boolean {
   }
 }
 
+export function safePreviewUrl(value: unknown): string | null {
+  return typeof value === 'string' && isPreviewUrl(value)
+    ? new URL(value, window.location.origin).pathname
+    : null
+}
+
 function isJpegBase64(value: unknown): boolean {
   if (
     typeof value !== 'string' ||

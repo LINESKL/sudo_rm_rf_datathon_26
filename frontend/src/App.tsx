@@ -311,7 +311,13 @@ export function App() {
 
             <CardContent className="p-0">
               {result ? (
-                <ResultView result={result} onReset={newVideo} serviceMode={serviceMode} />
+                <ResultView
+                  key={result.job_id}
+                  result={result}
+                  onReset={newVideo}
+                  serviceMode={serviceMode}
+                  apiKey={analysis.job?.key ?? ''}
+                />
               ) : (
                 <form onSubmit={submit} noValidate>
                   {!processing && !analysis.uploading && (

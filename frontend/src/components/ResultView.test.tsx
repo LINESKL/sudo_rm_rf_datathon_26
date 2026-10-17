@@ -42,9 +42,14 @@ describe('ResultView', () => {
     const violations = Array.from({ length: count }, (_, index) => event(index))
     render(<ResultView result={result(violations)} onReset={vi.fn()} serviceMode="pipeline" />)
 
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(
-      count ? `Обнаружены признаки возможных нарушений: ${count}` : 'Нарушение не обнаружено',
-    )
+    expect(
+      screen.getByRole('heading', {
+        level: 3,
+        name: count
+          ? `Обнаружены признаки возможных нарушений: ${count}`
+          : 'Нарушение не обнаружено',
+      }),
+    ).toBeVisible()
     expect(screen.queryAllByRole('heading', { level: 4 })).toHaveLength(count)
     expect(screen.queryAllByRole('article')).toHaveLength(count)
     for (const [index, violation] of violations.entries()) {
@@ -66,7 +71,10 @@ describe('ResultView', () => {
     })
     render(<ResultView result={result([violation])} onReset={vi.fn()} serviceMode="pipeline" />)
     expect(screen.getByRole('heading', { name: violation.type })).toBeVisible()
-    expect(screen.getAllByText('00:08,6 · 8,6 с')).toHaveLength(2)
+    expect(screen.getAllByText('00:08,6 · 8.625 с')).toHaveLength(2)
+    expect(
+      screen.getByRole('button', { name: 'Увеличить кадр 1 события 1, 8.625 с' }),
+    ).toBeVisible()
     expect(screen.getByText('Уверенность: средняя')).toBeVisible()
     expect(screen.getByText(violation.observed)).toBeVisible()
     expect(screen.getByText(violation.why)).toBeVisible()
@@ -239,6 +247,12 @@ describe('ResultView', () => {
     render(<ResultView result={result([event()])} onReset={vi.fn()} serviceMode="pipeline" />)
     const trigger = screen.getByRole('button', { name: 'Увеличить кадр 1 события 1, 8.625 с' })
     await user.tab()
+    expect(screen.getByLabelText('Плеер загруженного видео')).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Событие 1: Событие 1, 00:08,6' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Перейти к событию 1, 8.625 с' })).toHaveFocus()
+    await user.tab()
     expect(trigger).toHaveFocus()
     await user.keyboard('{Enter}')
     const dialog = await screen.findByRole('dialog', { name: 'Кадр-доказательство' })
@@ -258,46 +272,174 @@ describe('ResultView', () => {
     await user.click(screen.getByRole('button', { name: 'Новое видео' }))
     expect(onReset).toHaveBeenCalledOnce()
   })
+
+  it('opens the context before the first and last events without changing evidence timestamps', async () => {
+    const user = userEvent.setup()
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    const violations = [
+      event(0, { timecode_sec: 0.25, timecode_end_sec: 0.5 }),
+      event(1, { timecode_sec: 19.875, timecode_end_sec: 20 }),
+    ]
+    render(
+      <ResultView
+        result={result(violations, { duration_sec: 20 })}
+        onReset={vi.fn()}
+        serviceMode="pipeline"
+      />,
+    )
+    const video = screen.getByLabelText<HTMLVideoElement>('Плеер загруженного видео')
+    Object.defineProperty(video, 'readyState', { configurable: true, value: 1 })
+    Object.defineProperty(video, 'duration', { configurable: true, value: 20 })
+    await user.click(screen.getByRole('button', { name: 'Перейти к событию 1, 0.25 с' }))
+    expect(video.currentTime).toBe(0)
+    await user.click(screen.getByRole('button', { name: 'Событие 2: Событие 2, 00:19,9' }))
+    expect(video.currentTime).toBe(18.875)
+    expect(screen.getByText('00:19,9 · 19.875 с')).toBeVisible()
+    expect(screen.getAllByAltText('Кадр-доказательство на 9.625 с')).toHaveLength(1)
+    expect(play).toHaveBeenCalledTimes(2)
+    play.mockRestore()
+  })
+
+  it('marks all overlapping events at the current position and clears selection for another job', () => {
+    const violations = [
+      event(0, { timecode_sec: 1, timecode_end_sec: 3 }),
+      event(1, { timecode_sec: 2, timecode_end_sec: 4 }),
+    ]
+    const details = result(violations)
+    const view = render(<ResultView result={details} onReset={vi.fn()} serviceMode="pipeline" />)
+    const video = screen.getByLabelText<HTMLVideoElement>('Плеер загруженного видео')
+    Object.defineProperty(video, 'readyState', { configurable: true, value: 1 })
+    video.currentTime = 2.5
+    fireEvent.timeUpdate(video)
+    expect(screen.getAllByText('Текущий фрагмент')).toHaveLength(2)
+    expect(
+      screen.getAllByRole('article').every((card) => card.getAttribute('aria-current') === 'true'),
+    ).toBe(true)
+    view.rerender(
+      <ResultView
+        result={{ ...details, job_id: 'another-job' }}
+        onReset={vi.fn()}
+        serviceMode="pipeline"
+      />,
+    )
+    expect(screen.queryByText('Текущий фрагмент')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('article').every((card) => !card.hasAttribute('aria-current'))).toBe(
+      true,
+    )
+  })
+
+  it('keeps evidence and the keyboard dialog available after a media error', async () => {
+    const user = userEvent.setup()
+    render(
+      <ResultView
+        result={result([event()])}
+        onReset={vi.fn()}
+        serviceMode="pipeline"
+        apiKey="private-test-key"
+      />,
+    )
+    fireEvent.error(screen.getByLabelText('Плеер загруженного видео'))
+    expect(screen.getByRole('alert')).toHaveTextContent('Видеопревью недоступно')
+    expect(screen.getByRole('button', { name: 'Перейти к событию 1, 8.625 с' })).toBeDisabled()
+    expect(screen.getByRole('heading', { name: 'Событие 1' })).toBeVisible()
+    const trigger = screen.getByRole('button', { name: 'Увеличить кадр 1 события 1, 8.625 с' })
+    trigger.focus()
+    await user.keyboard('{Enter}')
+    expect(await screen.findByRole('dialog', { name: 'Кадр-доказательство' })).toBeVisible()
+    expect(document.body.innerHTML).not.toContain('private-test-key')
+  })
 })
 
 describe('ResultView review fixes', () => {
+  it('seeks a scene interval exactly and synchronizes its cursor with the player', async () => {
+    const user = userEvent.setup()
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    const details = result([event()], {
+      timeline: { cash_on_desk: [[2.625, 10]] },
+      timeline_labels: { cash_on_desk: 'Деньги на столе' },
+    })
+    const view = render(<ResultView result={details} onReset={vi.fn()} serviceMode="pipeline" />)
+    const section = screen.getByRole('region', { name: 'Состояния сцены' })
+    const video = screen.getByLabelText<HTMLVideoElement>('Плеер загруженного видео')
+    Object.defineProperty(video, 'readyState', { configurable: true, value: 1 })
+    Object.defineProperty(video, 'duration', { configurable: true, value: details.duration_sec })
+    await user.click(within(section).getByRole('button'))
+    expect(video.currentTime).toBe(2.625)
+    expect(within(section).getByRole('button')).toHaveAttribute('aria-current', 'true')
+    video.currentTime = 12
+    fireEvent.timeUpdate(video)
+    expect(within(section).getByRole('button')).not.toHaveAttribute('aria-current', 'true')
+    view.rerender(
+      <ResultView
+        result={{ ...details, job_id: 'next-scene-job' }}
+        onReset={vi.fn()}
+        serviceMode="pipeline"
+      />,
+    )
+    expect(view.container.querySelector('.timeline-cursor')).not.toBeInTheDocument()
+    play.mockRestore()
+  })
+
+  it('disables scene navigation on media error without hiding timeline or evidence', () => {
+    render(
+      <ResultView
+        result={result([event()], { timeline: { cash_on_desk: [[2, 10]] } })}
+        onReset={vi.fn()}
+        serviceMode="pipeline"
+      />,
+    )
+    const section = screen.getByRole('region', { name: 'Состояния сцены' })
+    const video = screen.getByLabelText<HTMLVideoElement>('Плеер загруженного видео')
+    Object.defineProperty(video, 'readyState', { configurable: true, value: 1 })
+    video.currentTime = 3
+    fireEvent.timeUpdate(video)
+    expect(within(section).getByRole('button')).toHaveAttribute('aria-current', 'true')
+    fireEvent.error(video)
+    expect(within(section).getByRole('button')).toBeDisabled()
+    expect(section.querySelector('.timeline-cursor')).not.toBeInTheDocument()
+    expect(screen.getByRole('article', { name: 'Событие 1: Событие 1' })).toBeVisible()
+    expect(screen.getByAltText('Кадр-доказательство на 8.625 с')).toBeVisible()
+  })
+
   it.each([
-    { mode: 'unknown', degraded: false },
-    { mode: 'stub', degraded: false },
-    { mode: 'pipeline', degraded: true },
-    { mode: 'pipeline', degraded: undefined },
-  ] as const)(
-    'keeps an unconfirmed clean result neutral: $mode/$degraded',
-    ({ mode, degraded }) => {
+    { serviceMode: 'unknown' as const, degraded: false },
+    { serviceMode: 'pipeline' as const, degraded: true },
+  ])(
+    'shows an unconfirmed clean result as neutral review: $serviceMode, degraded=$degraded',
+    ({ serviceMode, degraded }) => {
       const { container } = render(
-        <ResultView result={result([], { degraded })} onReset={vi.fn()} serviceMode={mode} />,
+        <ResultView
+          result={result([], { degraded })}
+          onReset={vi.fn()}
+          serviceMode={serviceMode}
+        />,
       )
       const banner = container.querySelector('.result-banner')
       expect(banner).toHaveClass('needs-review')
-      expect(banner).not.toHaveClass('has-findings', 'clean')
-      expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(
-        'Результат требует проверки',
-      )
-      expect(screen.queryByText('Нарушение не обнаружено')).not.toBeInTheDocument()
+      expect(banner).not.toHaveClass('has-findings')
+      expect(
+        screen.getByRole('heading', { name: 'Результат требует проверки' }),
+      ).toBeVisible()
+      expect(
+        screen.queryByRole('heading', { name: 'Нарушение не обнаружено' }),
+      ).not.toBeInTheDocument()
     },
   )
 
-  it('preserves findings and evidence when the analysis is partial', () => {
-    render(
+  it('keeps findings explicit when the analysis is incomplete', () => {
+    const { container } = render(
       <ResultView
         result={result([event()], { degraded: true })}
         onReset={vi.fn()}
         serviceMode="pipeline"
       />,
     )
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(
-      'Обнаружены признаки возможных нарушений: 1',
-    )
+    expect(container.querySelector('.result-banner')).toHaveClass('has-findings')
+    expect(
+      screen.getByRole('heading', { name: 'Обнаружены признаки возможных нарушений: 1' }),
+    ).toBeVisible()
     expect(screen.getByText('Анализ выполнен не полностью')).toBeVisible()
     expect(screen.getByRole('article', { name: 'Событие 1: Событие 1' })).toBeVisible()
-    expect(
-      screen.getByRole('button', { name: 'Увеличить кадр 1 события 1, 8.625 с' }),
-    ).toBeVisible()
   })
 
   it.each([

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   CircleAlert,
   ExternalLink,
   ImageOff,
+  Play,
   ScanSearch,
   ShieldCheck,
   Upload,
@@ -21,26 +22,11 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import type { DoneDetails, EvidenceFrame } from '@/api/contracts'
-
-function timecode(seconds: number) {
-  const roundedSeconds = Math.round(seconds * 10) / 10
-  const minutes = Math.floor(roundedSeconds / 60)
-    .toString()
-    .padStart(2, '0')
-  const rest = new Intl.NumberFormat('ru-RU', {
-    minimumIntegerDigits: 2,
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-    useGrouping: false,
-  }).format(roundedSeconds % 60)
-  return `${minutes}:${rest}`
-}
-
-const seconds1 = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1, useGrouping: false })
-
-function sec(value: number) {
-  return seconds1.format(value)
-}
+import { safePreviewUrl } from '@/api/client'
+import { timecode } from '@/lib/timecode'
+import { VideoPreview } from './VideoPreview'
+import type { VideoPreviewHandle } from './VideoPreview'
+import { StateTimeline } from './StateTimeline'
 
 function EvidenceImage({ frame, large = false }: { frame: EvidenceFrame; large?: boolean }) {
   const [failed, setFailed] = useState(false)
@@ -96,7 +82,7 @@ function EvidencePreview({
         </DialogContent>
       </Dialog>
       <figcaption className="mono" title={`${frame.timestamp_sec} с от начала видео`}>
-        {timecode(frame.timestamp_sec)} · {sec(frame.timestamp_sec)} с
+        {timecode(frame.timestamp_sec)} · {frame.timestamp_sec} с
       </figcaption>
     </figure>
   )
@@ -108,11 +94,34 @@ export function ResultView({
   result,
   onReset,
   serviceMode,
+  apiKey = '',
 }: {
   result: DoneDetails
   onReset: () => void
   serviceMode: 'stub' | 'pipeline' | 'unknown'
+  apiKey?: string
 }) {
+  const playerRef = useRef<VideoPreviewHandle>(null)
+  const [position, setPosition] = useState<{ jobId: string; time: number | null } | null>(null)
+  const [availability, setAvailability] = useState<{ jobId: string; available: boolean } | null>(
+    null,
+  )
+  const canSeek =
+    availability?.jobId === result.job_id
+      ? availability.available
+      : safePreviewUrl(result.preview_url) !== null
+  const activeTime = canSeek && position?.jobId === result.job_id ? position.time : null
+  const isActive = (index: number) => {
+    const event = result.violations[index]
+    return (
+      activeTime !== null &&
+      activeTime >= event.timecode_sec &&
+      activeTime <= event.timecode_end_sec
+    )
+  }
+  function seek(seconds: number) {
+    playerRef.current?.seek(Math.max(0, seconds - 1))
+  }
   const hasFindings = result.verdict === 'violation'
   const needsReview = result.degraded !== false || serviceMode !== 'pipeline'
   return (
@@ -185,12 +194,51 @@ export function ResultView({
           </strong>
         </span>
       </div>
+      <VideoPreview
+        key={result.job_id}
+        ref={playerRef}
+        result={result}
+        apiKey={apiKey}
+        onPositionChange={(time) => setPosition({ jobId: result.job_id, time })}
+        onAvailabilityChange={(available) => setAvailability({ jobId: result.job_id, available })}
+      />
+      <StateTimeline
+        result={result}
+        activeTime={activeTime}
+        canSeek={canSeek}
+        onSeek={(seconds) => playerRef.current?.seek(seconds)}
+      />
+      {result.violations.length > 0 && (
+        <div className="event-jumps" role="group" aria-label="События на шкале видео">
+          {result.violations.map((violation, index) => (
+            <Button
+              key={`${index}:${violation.type_id}`}
+              type="button"
+              variant="outline"
+              className="event-jump min-h-11 h-auto whitespace-normal rounded-xl"
+              disabled={!canSeek}
+              aria-label={`Событие ${index + 1}: ${violation.type}, ${timecode(violation.timecode_sec)}`}
+              aria-current={isActive(index) ? 'true' : undefined}
+              onClick={() => seek(violation.timecode_sec)}
+            >
+              <Play size={14} aria-hidden="true" />
+              <span className="min-w-0">
+                <span className="mono block">
+                  {index + 1} · {timecode(violation.timecode_sec)}
+                </span>
+                <span className="line-clamp-2">{violation.type}</span>
+              </span>
+            </Button>
+          ))}
+        </div>
+      )}
       {result.violations.map((violation, index) => (
         <Card
           role="article"
           aria-label={`Событие ${index + 1}: ${violation.type}`}
           key={`${index}:${violation.type_id}:${violation.timecode_sec}`}
-          className="event-card gap-5 rounded-2xl shadow-none"
+          className={`event-card gap-5 rounded-2xl shadow-none ${isActive(index) ? 'event-current' : ''}`}
+          aria-current={isActive(index) ? 'true' : undefined}
         >
           <CardHeader className="gap-3 px-5">
             <div className="event-heading">
@@ -200,9 +248,20 @@ export function ResultView({
               </CardTitle>
             </div>
             <div className="event-metadata">
-              <span className="mono" title={`${violation.timecode_sec} с от начала видео`}>
-                {timecode(violation.timecode_sec)} · {sec(violation.timecode_sec)} с
-              </span>
+              <Button
+                type="button"
+                variant="link"
+                className="mono min-h-11 h-auto whitespace-normal px-0 text-brand"
+                aria-label={`Перейти к событию ${index + 1}, ${violation.timecode_sec} с`}
+                title={`${violation.timecode_sec} с от начала видео`}
+                disabled={!canSeek}
+                onClick={() => seek(violation.timecode_sec)}
+              >
+                {timecode(violation.timecode_sec)} · {violation.timecode_sec} с
+              </Button>
+              {isActive(index) && (
+                <Badge className="rounded-full bg-accent text-primary">Текущий фрагмент</Badge>
+              )}
               <Badge variant="secondary" className="rounded-full">
                 Уверенность: {confidenceLabels[violation.confidence_level]}
               </Badge>
