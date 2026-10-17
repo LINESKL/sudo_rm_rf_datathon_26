@@ -21,6 +21,10 @@ from ml.procedures import procedures_hook  # noqa: E402
 
 STAGE_HOOKS.insert(0, procedures_hook)
 
+from ml.open_pass import open_pass  # noqa: E402
+
+STAGE_HOOKS.insert(1, open_pass)
+
 
 def _evidence_times(c: Candidate, duration: float) -> list[float]:
     raw = [c.t, (c.t + min(c.t_end, duration)) / 2, min(c.t_end, duration) - 0.3]
