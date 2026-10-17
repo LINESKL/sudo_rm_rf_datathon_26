@@ -1,9 +1,11 @@
-import type { JobDetails } from './contracts'
+import type { JobDetails, ServiceHealth } from './contracts'
 
 export const MAX_VIDEO_BYTES = 200 * 1024 * 1024
 
 const UPLOAD_TIMEOUT_MS = 120_000
 const DETAILS_TIMEOUT_MS = 15_000
+const MAX_EVIDENCE_BASE64_LENGTH = 14_000_000
+const TIMESTAMP_TOLERANCE_SEC = 0.01
 
 export class ApiError extends Error {
   constructor(
@@ -90,18 +92,77 @@ function isStages(value: unknown): boolean {
   )
 }
 
+function isSourceUrl(value: unknown): boolean {
+  if (typeof value !== 'string' || value !== value.trim()) return false
+  try {
+    const url = new URL(value)
+    return (
+      (url.protocol === 'https:' || url.protocol === 'http:') &&
+      Boolean(url.hostname) &&
+      !url.username &&
+      !url.password
+    )
+  } catch {
+    return false
+  }
+}
+
+function isPreviewUrl(value: unknown): boolean {
+  if (value === undefined || value === null) return true
+  if (typeof value !== 'string' || value !== value.trim() || /[\r\n\t\\]/.test(value)) return false
+  if (!value.startsWith('/previews/') && !/^https?:\/\//i.test(value)) return false
+  try {
+    const url = new URL(value, window.location.origin)
+    return (
+      url.origin === window.location.origin &&
+      url.pathname.startsWith('/previews/') &&
+      url.pathname.length > '/previews/'.length &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash
+    )
+  } catch {
+    return false
+  }
+}
+
+function isJpegBase64(value: unknown): boolean {
+  if (
+    typeof value !== 'string' ||
+    value.length < 8 ||
+    value.length > MAX_EVIDENCE_BASE64_LENGTH ||
+    value.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]*={0,2}$/.test(value)
+  )
+    return false
+  try {
+    const bytes = atob(value)
+    // Маркеры не заменяют декодер: повреждение изображения обработает UI через onError.
+    return (
+      bytes.charCodeAt(0) === 0xff &&
+      bytes.charCodeAt(1) === 0xd8 &&
+      bytes.charCodeAt(bytes.length - 2) === 0xff &&
+      bytes.charCodeAt(bytes.length - 1) === 0xd9
+    )
+  } catch {
+    return false
+  }
+}
+
 function isRule(value: unknown): boolean {
   return (
+    value === undefined ||
     value === null ||
     (isRecord(value) &&
       isText(value.document) &&
-      isText(value.point) &&
-      typeof value.quote === 'string' &&
-      typeof value.url === 'string')
+      (value.point === undefined || value.point === null || isText(value.point)) &&
+      (value.quote === undefined || value.quote === null || isText(value.quote)) &&
+      isSourceUrl(value.url))
   )
 }
 
-function isViolation(value: unknown): boolean {
+function isViolation(value: unknown, duration: number): boolean {
   if (!isRecord(value)) return false
   return (
     isText(value.type) &&
@@ -109,23 +170,29 @@ function isViolation(value: unknown): boolean {
     isNonnegative(value.timecode_sec) &&
     isNonnegative(value.timecode_end_sec) &&
     value.timecode_end_sec >= value.timecode_sec &&
+    value.timecode_end_sec <= duration + TIMESTAMP_TOLERANCE_SEC &&
     isFraction(value.confidence) &&
     (value.confidence_level === 'low' ||
       value.confidence_level === 'medium' ||
       value.confidence_level === 'high') &&
-    typeof value.observed === 'string' &&
-    typeof value.why === 'string' &&
-    typeof value.description === 'string' &&
+    isText(value.observed) &&
+    isText(value.why) &&
+    isText(value.description) &&
     isRule(value.rule) &&
     Array.isArray(value.evidence_frames) &&
+    value.evidence_frames.length >= 1 &&
+    value.evidence_frames.length <= 3 &&
     value.evidence_frames.every(
       (frame: unknown) =>
-        isRecord(frame) && isNonnegative(frame.timestamp_sec) && isText(frame.image_base64),
+        isRecord(frame) &&
+        isNonnegative(frame.timestamp_sec) &&
+        frame.timestamp_sec <= duration + TIMESTAMP_TOLERANCE_SEC &&
+        isJpegBase64(frame.image_base64),
     )
   )
 }
 
-function isTimeline(value: unknown): boolean {
+function isTimeline(value: unknown, duration: number): boolean {
   return (
     isRecord(value) &&
     Object.values(value).every(
@@ -137,7 +204,8 @@ function isTimeline(value: unknown): boolean {
             interval.length === 2 &&
             isNonnegative(interval[0]) &&
             isNonnegative(interval[1]) &&
-            interval[1] >= interval[0],
+            interval[1] >= interval[0] &&
+            interval[1] <= duration + TIMESTAMP_TOLERANCE_SEC,
         ),
     )
   )
@@ -155,15 +223,17 @@ function parseJobDetails(value: unknown): JobDetails {
     value.status === 'done' &&
     (value.verdict === 'violation' || value.verdict === 'no_violation') &&
     Array.isArray(value.violations) &&
-    value.violations.every(isViolation) &&
-    isNonnegative(value.rules_checked) &&
-    Number.isInteger(value.rules_checked) &&
+    (value.verdict === 'violation' ? value.violations.length > 0 : value.violations.length === 0) &&
+    (value.rules_checked === undefined ||
+      (isNonnegative(value.rules_checked) && Number.isInteger(value.rules_checked))) &&
     isNonnegative(value.processing_sec) &&
     isNonnegative(value.duration_sec) &&
-    (value.preview_url === null || isText(value.preview_url)) &&
+    value.violations.every((violation) => isViolation(violation, value.duration_sec as number)) &&
+    isPreviewUrl(value.preview_url) &&
+    (value.degraded === undefined || typeof value.degraded === 'boolean') &&
     (value.progress === undefined || isProgress(value.progress)) &&
     (value.stages === undefined || isStages(value.stages)) &&
-    (value.timeline === undefined || isTimeline(value.timeline)) &&
+    (value.timeline === undefined || isTimeline(value.timeline, value.duration_sec)) &&
     (value.timeline_labels === undefined ||
       (isRecord(value.timeline_labels) &&
         Object.values(value.timeline_labels).every((label) => typeof label === 'string')))
@@ -247,11 +317,11 @@ export function uploadVideo(
   })
 }
 
-export async function getJobDetails(
-  jobId: string,
-  apiKey: string,
+async function getJson(
+  path: string,
   signal: AbortSignal,
-): Promise<JobDetails> {
+  headers?: Record<string, string>,
+): Promise<unknown> {
   if (signal.aborted) throw aborted()
   const controller = new AbortController()
   const cancel = () => controller.abort()
@@ -263,8 +333,9 @@ export async function getJobDetails(
   }, DETAILS_TIMEOUT_MS)
 
   try {
-    const response = await fetch(`/api/v1/jobs/${encodeURIComponent(jobId)}/details`, {
-      headers: { 'X-API-Key': apiKey },
+    const response = await fetch(path, {
+      ...(headers ? { headers } : {}),
+      cache: 'no-store',
       signal: controller.signal,
     })
     if (!response.ok) throw httpError(response.status)
@@ -275,9 +346,9 @@ export async function getJobDetails(
       if (signal.aborted || timedOut) throw error
       throw contractError()
     }
-    const details = parseJobDetails(payload)
-    if (details.job_id !== jobId) throw contractError()
-    return details
+    if (signal.aborted) throw aborted()
+    if (timedOut) throw timeoutError()
+    return payload
   } catch (error) {
     if (signal.aborted) throw aborted()
     if (timedOut) throw timeoutError()
@@ -287,4 +358,28 @@ export async function getJobDetails(
     clearTimeout(timeout)
     signal.removeEventListener('abort', cancel)
   }
+}
+
+export async function getJobDetails(
+  jobId: string,
+  apiKey: string,
+  signal: AbortSignal,
+): Promise<JobDetails> {
+  const payload = await getJson(`/api/v1/jobs/${encodeURIComponent(jobId)}/details`, signal, {
+    'X-API-Key': apiKey,
+  })
+  const details = parseJobDetails(payload)
+  if (details.job_id !== jobId) throw contractError()
+  return details
+}
+
+export async function getServiceHealth(signal: AbortSignal): Promise<ServiceHealth> {
+  const payload = await getJson('/health', signal)
+  if (
+    !isRecord(payload) ||
+    (payload.mode !== 'stub' && payload.mode !== 'pipeline') ||
+    (payload.status !== 'ok' && payload.status !== 'degraded')
+  )
+    throw contractError()
+  return { mode: payload.mode, status: payload.status }
 }

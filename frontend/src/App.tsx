@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import type { DragEvent, FormEvent } from 'react'
 import {
   ArrowRight,
@@ -26,7 +27,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { FALLBACK_STAGES } from './api/contracts'
-import { validateVideo } from './api/client'
+import { getServiceHealth, validateVideo } from './api/client'
+import { ResultView } from './components/ResultView'
 import { useAnalysis } from './useAnalysis'
 
 const STORAGE_KEY = 'cashguard-api-key'
@@ -81,6 +83,20 @@ export function App() {
   const inputRef = useRef<HTMLInputElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const analysis = useAnalysis()
+  const health = useQuery({
+    queryKey: ['service-health', analysis.job?.id ?? null, analysis.done],
+    queryFn: ({ signal }) => getServiceHealth(signal),
+    enabled: !__DEMO__,
+    networkMode: 'always',
+    retry: false,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  })
+  const serviceMode = __DEMO__
+    ? 'stub'
+    : health.isSuccess && !health.isFetching
+      ? health.data.mode
+      : 'unknown'
   const processing =
     !analysis.uploading && analysis.job !== null && !analysis.done && !analysis.error
   const result = analysis.details?.status === 'done' && analysis.done ? analysis.details : null
@@ -174,6 +190,15 @@ export function App() {
             </AlertDescription>
           </Alert>
         )}
+        {!__DEMO__ && serviceMode === 'stub' && !result && (
+          <Alert className="mb-7 rounded-xl border-0 bg-muted">
+            <CircleAlert />
+            <AlertTitle>Подключён тестовый анализатор</AlertTitle>
+            <AlertDescription>
+              Сервис возвращает пример для проверки интерфейса. Модель анализа видео не подключена.
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="page-intro">
           <h1 tabIndex={-1} ref={headingRef}>
             Проверка видео
@@ -232,45 +257,7 @@ export function App() {
 
             <CardContent className="p-0">
               {result ? (
-                <div className="result-body" role="status">
-                  <div
-                    className={`result-banner ${result.verdict === 'violation' ? 'has-findings' : 'clean'}`}
-                  >
-                    {result.verdict === 'violation' ? (
-                      <CircleAlert size={28} />
-                    ) : (
-                      <ShieldCheck size={28} />
-                    )}
-                    <h3>
-                      {result.verdict === 'violation'
-                        ? `Обнаружены признаки возможных нарушений: ${result.violations.length}`
-                        : 'Нарушение не обнаружено'}
-                    </h3>
-                  </div>
-                  <div className="result-facts">
-                    <span>
-                      Проверено правил<strong className="mono">{result.rules_checked}</strong>
-                    </span>
-                    <span>
-                      Время обработки
-                      <strong className="mono">{Math.round(result.processing_sec)} с</strong>
-                    </span>
-                  </div>
-                  {__DEMO__ && (
-                    <Alert role="note" className="mt-2 border-0 bg-muted text-muted-foreground">
-                      <AlertDescription>
-                        Это пример результата для проверки интерфейса, а не вывод по загруженной
-                        записи.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  <Button
-                    className="mt-6 h-12 rounded-xl px-6 text-base font-normal has-[>svg]:px-6"
-                    onClick={newVideo}
-                  >
-                    <Upload size={17} /> Новое видео
-                  </Button>
-                </div>
+                <ResultView result={result} onReset={newVideo} serviceMode={serviceMode} />
               ) : (
                 <form onSubmit={submit} noValidate>
                   {!processing && !analysis.uploading && (

@@ -3,7 +3,7 @@
 Источник: `docs/superpowers/specs/2026-10-17-cashguard-design.md` и разбор `docs/frontend/case-analysis.md` (PDF + FAQ, 17.10.2026).
 Frontend уточнён в `docs/frontend/BRIEF.md`: React + Vite + TypeScript,
 сборка `frontend/dist`, шрифты в бандле. Старые указания на JS без сборки заменены этим решением.
-Актуальный tracker — Linear, проект **GuardTusk — Datathon 2026**. F0 — `In Progress`, F1 — `In Review`, остальные — `Todo`.
+Актуальный tracker — Linear, проект **GuardTusk — Datathon 2026**. F0 — `In Progress`, F1/F2 — `In Review`, остальные — `Todo`.
 Это снимок задач после сверки кейса; статусы не означают подтверждение реального backend.
 Пользователь проверил план и разрешил продолжить разработку с F0/F1.
 Выполненные проверки и открытая интеграция — в [отчёте приёмки](../frontend/acceptance.md).
@@ -36,7 +36,7 @@ API: `POST /api/v1/analyze`, `GET /api/v1/jobs/{id}`, `GET /api/v1/jobs/{id}/det
 - [ ] Фронт открывается по `/`.
 
 Уточнение кейса в MAIN-1: две API-проекции одной задачи должны совпадать по событиям/таймкодам/JPEG.
-Источник без точного пункта допустим по FAQ31; представление согласовать с F2 до изменения wire contract.
+Источник без точного пункта допустим по FAQ31; backend и F2 поддерживают nullable/отсутствующие `point` и `quote`.
 `rule:null` не подтверждает нормативную связь, заглушка не доказывает качество ML.
 
 ### B2 / MAIN-2. Очередь задач, SQLite и прогресс
@@ -168,9 +168,13 @@ README репозитория и текст сдачи.
 
 ### F2. Проверяемый результат: события, кадры и нормативы — MAIN-6
 
-[Задача в Linear](https://linear.app/grim-stack/issue/MAIN-6/f2-proveryaemyj-rezultat-sobytiya-kadry-i-normativy) · Urgent · Todo · SNOWNUMB.
+[Задача в Linear](https://linear.app/grim-stack/issue/MAIN-6/f2-proveryaemyj-rezultat-sobytiya-kadry-i-normativy) · Urgent · In Review · SNOWNUMB.
 
 На каждое событие: тип, точный таймкод, 1–3 JPEG, наблюдение, объяснение и источник; увеличение кадра. Проверить 0/1/3+ событий, новый тип, отсутствие пункта/rule, повреждённые кадры и противоречивый ответ. Пример мока не выдавать за обработку.
+
+Карточки и shadcn Dialog реализованы; runtime сверён с backend. 136 frontend-тестов и браузерные
+сценарии с демо/реальным HTTP stub проходят. Неполный и тестовый анализ обозначаются явно;
+приёмка настоящего ML остаётся открытой. Проверки — `docs/frontend/acceptance.md`.
 
 **Зависимости:** MAIN-1.
 Подробные требования, критерии приёмки и проверки записаны в задаче Linear.
@@ -189,7 +193,7 @@ README репозитория и текст сдачи.
 [Задача в Linear](https://linear.app/grim-stack/issue/MAIN-13/f6-priyomka-frontend-realnyj-api-publichnyj-url-i-oflajn) · High · Todo · SNOWNUMB.
 
 Production UI с реальным backend/ML, .mov, паритет /jobs/{id} и /details, реальные JPEG/источники, публичный HTTPS,
-результат до 300 с и работа без внешней сети. Частичный отчёт F0/F1 создан в docs/frontend/acceptance.md;
+результат до 300 с и работа без внешней сети. Частичный отчёт F0/F1/F2 создан в docs/frontend/acceptance.md;
 живые проверки F6 пока открыты.
 
 **Зависимости:** MAIN-5, MAIN-6, MAIN-11, MAIN-4.
@@ -235,4 +239,5 @@ Production UI с реальным backend/ML, .mov, паритет /jobs/{id} и
 F4 не входит в зависимости F5/F6. Все frontend-задачи — дочерние MAIN-12, кроме самого F0.
 Для F6 дополнительно используем результаты B5/MAIN-8 и передаём итог в B6/MAIN-10.
 
-Существующая рабочая ветка F1: `feat/F1-upload-status`; этот аудит не создаёт ветку и не выполняет commit/push.
+Исходные правки F1 опубликованы в `feat/F1-upload-status`. После загрузки новых backend/ML
+продолжение F2 ведётся в `AIrevision/F2-result-evidence`; история линейная, основные ветки не переписаны.
