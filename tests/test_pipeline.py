@@ -4,6 +4,10 @@ from tests.test_timeline import _st
 def _leaving_vlm(fake_vlm_cls):
     calls = {"n": 0}
     def by_order(imgs, prompt):
+        if "bounding boxes" in prompt:
+            return {"laptop": [400, 400, 600, 500], "safe": [0, 0, 100, 100]}
+        if "What does its screen show" in prompt:
+            return {"screen": "document_or_spreadsheet"}
         calls["n"] += 1
         return _st() if calls["n"] <= 4 else _st(cashier_present=False, cashier_at_workplace=False)
     return fake_vlm_cls(by_order)

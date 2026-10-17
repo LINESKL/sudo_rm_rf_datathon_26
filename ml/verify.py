@@ -25,12 +25,21 @@ def _ask(client, frames, question):
     return ans.get("answer") if isinstance(ans, dict) else None
 
 
+AFTER_START = {"cash_unattended"}  # judged on the empty workplace, not on the cashier still sitting
+
+
+def frame_times(c) -> list[float]:
+    if c.type_id in AFTER_START:
+        return [c.t + 0.5, c.t + 2.0, min(c.t_end, c.t + 4.0), min(c.t_end, c.t + 6.0)]
+    return [c.t - 1.0, c.t + 0.5, c.t + 2.0, min(c.t_end, c.t + 4.0)]
+
+
 def verify(cands, scene, client, video_path, time_left, workers: int = 4):
     cat = load_catalog()
 
     def one(c):
         q = cat[c.type_id]["verify_question"].format(note=c.note)
-        frames = sample_frames(video_path, [c.t - 1.0, c.t + 0.5, c.t + 2.0, min(c.t_end, c.t + 4.0)])
+        frames = sample_frames(video_path, frame_times(c))
         ans = _ask(client, frames, q)
         if ans == "unclear":
             # Not a confirmation. Re-asking is pointless at temperature 0 (same answer every time).

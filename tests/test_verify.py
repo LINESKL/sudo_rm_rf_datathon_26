@@ -29,3 +29,9 @@ def test_performed_check_disproves_skipped_check(tiny_video, fake_vlm_cls, type_
         client = fake_vlm_cls(lambda i, p: {"answer": answer, "what_is_visible": "fixture"})
         result = verify(cands, None, client, tiny_video, 100)
         assert bool(result) is (answer == "no")
+
+
+def test_cash_unattended_is_verified_on_frames_after_the_leave():
+    from ml.verify import frame_times
+    assert frame_times(Candidate("cash_unattended", 10.0, 20.0, .7)) == [10.5, 12.0, 14.0, 16.0]
+    assert frame_times(Candidate("phone_use", 10.0, 12.0, .7)) == [9.0, 10.5, 12.0, 12.0]

@@ -24,6 +24,14 @@ from ml.procedures import procedures_hook  # noqa: E402
 
 STAGE_HOOKS.insert(0, procedures_hook)
 
+from ml.outsider import outsider_hook  # noqa: E402
+
+STAGE_HOOKS.append(outsider_hook)
+
+from ml.screen import screen_hook  # noqa: E402
+
+STAGE_HOOKS.append(screen_hook)  # after verify: the zoomed screen class is the check  # after verify: the window question already is the check
+
 # ponytail: open pass (ml/open_pass.py) is off — on 32 videos it produced only false positives.
 
 

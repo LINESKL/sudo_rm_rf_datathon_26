@@ -40,13 +40,8 @@ def _presence(type_id, signal, min_dur):
 
 
 def _cash_unattended(scene):
-    out = []
-    for a, b in scene.intervals["valuables_on_desk"]:
-        for la, lb in scene.intervals["cashier_absent"]:
-            s, e = max(a, la), min(b, lb)
-            if e - s >= LEAVE_MIN:
-                out.append(Candidate("cash_unattended", s, e, _conf("cash_unattended")))
-    return out
+    # Frame flags miss a bag or a cash stack; every leave is asked about directly (verify.frame_times).
+    return [Candidate("cash_unattended", a, b, _conf("cash_unattended")) for a, b in _leaves(scene)]
 
 
 def _safe_unsecured(scene):
@@ -58,14 +53,13 @@ def _safe_unsecured(scene):
 
 
 RULES = {
-    "workstation_unlocked": _on_leave("workstation_unlocked", "screen_unlocked"),
     "cash_unattended": _cash_unattended,
     "safe_unsecured": _safe_unsecured,
     "personal_items": _presence("personal_items", "personal_items", 3.0),
     "eating_drinking": _presence("eating_drinking", "eating", 2.0),
-    "phone_use": _presence("phone_use", "phone", 2.0),
-    "outsider_cashier_zone": _presence("outsider_cashier_zone", "outsider_in_cashier_zone", 3.0),
 }
+# workstation_unlocked lives in ml/screen.py (zoomed screen on each leave).
+# ponytail: phone_use off (frame flag: 4 false alarms per hit on 40 videos); outsider lives in ml/outsider.py.
 
 
 def run_rules(scene) -> list[Candidate]:

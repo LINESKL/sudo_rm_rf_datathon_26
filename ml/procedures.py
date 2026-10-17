@@ -44,9 +44,7 @@ def _first(windows, step, a=-1e9, b=1e9):
 
 def check_procedures(windows) -> list[Candidate]:
     out = []
-    t_cash = _first(windows, "client_hands_over_cash")
-    if t_cash is not None and _first(windows, "id_document_check", t_cash - 8, t_cash + 8) is None:
-        out.append(Candidate("id_check_skipped", t_cash, t_cash + 4, _conf("id_check_skipped")))
+    # id_check_skipped is not reported: on 40 videos 3 false alarms, 0 hits.
     counts = [t for t in (_first(windows, "counting_by_hand"), _first(windows, "counting_machine")) if t is not None]
     if counts and _first(windows, "banknote_detector_check") is None and _first(windows, "counting_machine") is None:
         t_count = min(counts)

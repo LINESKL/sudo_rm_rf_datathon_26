@@ -35,6 +35,8 @@ def vlm_server():
                 answer = {"steps": ["none"]}
             elif "violation" in properties:
                 answer = {"violation": "none", "note": ""}
+            elif "OTHER person" in body["messages"][0]["content"][-1]["text"]:  # ml.outsider window
+                answer = {"answer": "yes" if state["mode"] == "outsider" else "no", "what_is_visible": "fixture"}
             else:
                 answer = {"answer": "yes", "what_is_visible": "Controlled test fixture"}
             if state["mode"] == "invalid" or (state["mode"] == "partial_phone" and stage == "answer"):
@@ -58,7 +60,7 @@ def vlm_server():
         thread.join(timeout=5)
 
 
-@pytest.mark.parametrize("mode", ["clean", "phone", "down", "invalid", "partial", "partial_phone"])
+@pytest.mark.parametrize("mode", ["clean", "outsider", "down", "invalid", "partial", "partial_phone"])
 def test_real_pipeline_through_api(settings, tiny_video, vlm_server, monkeypatch, mode):
     # Worker must receive binaries from Settings, not depend on parent env/PATH.
     monkeypatch.delenv("FFMPEG_BIN", raising=False)
@@ -70,13 +72,13 @@ def test_real_pipeline_through_api(settings, tiny_video, vlm_server, monkeypatch
         job_id = submit(client, tiny_video)
         details, _ = wait_done(client, job_id, timeout=120)
         jury = client.get(f"/api/v1/jobs/{job_id}", headers=HEADERS).json()
-        if mode in ("clean", "phone"):
+        if mode in ("clean", "outsider"):
             assert details["status"] == "done", details
             JobOutput(jury=jury, details=details)
             assert details["degraded"] is False
-            assert jury["verdict"] == ("violation" if mode == "phone" else "no_violation")
-            if mode == "phone":
-                assert details["violations"][0]["type_id"] == "phone_use"
+            assert jury["verdict"] == ("violation" if mode == "outsider" else "no_violation")
+            if mode == "outsider":
+                assert details["violations"][0]["type_id"] == "outsider_cashier_zone"
                 assert details["violations"][0]["rule"]["url"].startswith("https://")
             assert client.get(details["preview_url"], headers={"Range": "bytes=0-99"}).status_code == 206
             assert {"cashier_present", "steps"} <= {c[2] for c in vlm_server["calls"]}  # open pass is off
