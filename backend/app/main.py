@@ -45,7 +45,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             finally:
                 await queue.stop()
 
-    app = FastAPI(title="CashGuard API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Observer API", version="0.1.0", lifespan=lifespan)
     app.state.settings, app.state.store, app.state.queue = settings, store, queue
     app.add_middleware(APIBoundary, api_key=settings.api_key, max_upload_bytes=settings.max_upload_bytes)
     # Outer CORS middleware also handles preflight requests without API credentials.
@@ -168,8 +168,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if index.is_file() and not Path(path).suffix:
             return FileResponse(index)
         if not path and not index.is_file():
-            return HTMLResponse("<html lang='ru'><meta charset='utf-8'><title>CashGuard</title>"
-                                "<h1>CashGuard API</h1><p>Сборка frontend/dist ещё не установлена.</p>"
+            return HTMLResponse("<html lang='ru'><meta charset='utf-8'><title>Observer</title>"
+                                "<h1>Observer API</h1><p>Сборка frontend/dist ещё не установлена.</p>"
                                 "<a href='/docs'>Документация API</a></html>")
         raise HTTPException(404, "Файл не найден")
 

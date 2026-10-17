@@ -3,7 +3,7 @@
 Источник: `docs/superpowers/specs/2026-10-17-cashguard-design.md` и разбор `docs/frontend/case-analysis.md` (PDF + FAQ, 17.10.2026).
 Frontend уточнён в `docs/frontend/BRIEF.md`: React + Vite + TypeScript,
 сборка `frontend/dist`, шрифты в бандле. Старые указания на JS без сборки заменены этим решением.
-Актуальный tracker — Linear, проект **GuardTusk — Datathon 2026**. F0/F6 — `In Progress`, F1/F2/F3/F4 — `In Review`, F5 — `Done`.
+Актуальный tracker — Linear, проект **Observer — Datathon 2026**. F0/F6 — `In Progress`, F1/F2/F3/F4 — `In Review`, F5 — `Done`.
 Это снимок задач после сверки кейса; статусы не означают подтверждение реального backend.
 Пользователь проверил план и разрешил продолжить разработку с F0/F1.
 Выполненные проверки и открытая интеграция — в [отчёте приёмки](../frontend/acceptance.md).
@@ -145,11 +145,11 @@ README репозитория и текст сдачи.
 Обязательность и основания по страницам PDF — в [разборе кейса](../frontend/case-analysis.md), дизайн — в [брифе](../frontend/BRIEF.md).
 Приоритеты и ссылки ниже проверены чтением Linear после изменений.
 
-### F0. GuardTusk: frontend по кейсу и дизайн Forte — MAIN-12
+### F0. Observer: frontend по кейсу и дизайн Forte — MAIN-12
 
-[Задача в Linear](https://linear.app/grim-stack/issue/MAIN-12/f0-guardtusk-frontend-po-kejsu-i-dizajn-forte) · Urgent · In Progress · SNOWNUMB.
+[Задача в Linear](https://linear.app/grim-stack/issue/MAIN-12/f0-observer-frontend-po-kejsu-i-dizajn-forte) · Urgent · In Progress · SNOWNUMB.
 
-Стек, GuardTusk и светлая тема Forte проверены. Подготовка отмечена выполненной, пользователь разрешил F1.
+Стек, Observer и светлая тема Forte проверены. Подготовка отмечена выполненной, пользователь разрешил F1.
 Родительская F0 остаётся открытой до завершения обязательного сценария/F6.
 
 **Зависимости:** нет.

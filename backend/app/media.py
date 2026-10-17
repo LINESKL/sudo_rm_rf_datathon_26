@@ -8,11 +8,11 @@ from fastapi import HTTPException, Request, Response
 from .auth import matches_key
 from .config import Settings
 
-COOKIE_NAME = "cashguard_preview"
+COOKIE_NAME = "observer_preview"
 
 
 def grant(api_key: str, job_id: str, expires: int) -> str:
-    message = f"cashguard-preview-v1:{job_id}:{expires}".encode()
+    message = f"observer-preview-v1:{job_id}:{expires}".encode()
     signature = hmac.new(api_key.encode(), message, hashlib.sha256).hexdigest()
     return f"{expires}.{signature}"
 

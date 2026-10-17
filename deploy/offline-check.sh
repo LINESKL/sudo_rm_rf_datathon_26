@@ -13,7 +13,7 @@ source_kind="${VIDEO_SOURCE:-synthetic}"
 [[ "$source_kind" == 'synthetic' || "$source_kind" == 'dataset' ]] || {
     echo 'VIDEO_SOURCE must be synthetic or dataset' >&2; exit 1;
 }
-name="cashguard-offline-$$"
+name="observer-offline-$$"
 container_created=0
 output="$WORKSPACE_DIR/offline-results"
 mkdir -p "$output"

@@ -28,7 +28,7 @@ class Settings:
 
     def __post_init__(self):
         if not self.api_key or self.api_key == "replace-with-a-random-secret":
-            raise ValueError("Set API_KEY to a non-empty secret before starting CashGuard")
+            raise ValueError("Set API_KEY to a non-empty secret before starting Observer")
         if self.workers < 1 or self.job_timeout_s <= 0 or self.ml_deadline_s <= 0 or self.max_upload_bytes < 1:
             raise ValueError("WORKERS, JOB_TIMEOUT_S, ML_DEADLINE_S and MAX_UPLOAD_BYTES must be positive")
         if self.media_cookie_ttl_s < 1:

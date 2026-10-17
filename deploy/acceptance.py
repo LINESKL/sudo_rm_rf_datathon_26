@@ -121,7 +121,7 @@ def run(args, report):
         check(client.get("/previews/" + "0" * 32 + ".mp4", headers=headers).status_code == 404,
               "Missing preview must return 404")
         check(faststart(full.content), "Preview lacks faststart")
-        with tempfile.TemporaryDirectory(prefix="cashguard-acceptance-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="observer-acceptance-") as temporary:
             path = Path(temporary) / "preview.mp4"
             path.write_bytes(full.content)
             probe = subprocess.run([args.ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries",

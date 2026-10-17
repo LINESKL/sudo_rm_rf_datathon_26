@@ -1,4 +1,4 @@
-# Развёртывание CashGuard
+# Развёртывание Observer
 
 ## Образы и версии
 
@@ -16,12 +16,12 @@ GPU-основа: `vllm/vllm-openai:v0.31.0-cu129`, зафиксированна
 только зависимости API; импорт заглушки не загружает зависимости реального ML.
 
 ```bash
-docker build --target gpu -t YOUR_REGISTRY/cashguard:datathon .
-docker push YOUR_REGISTRY/cashguard:datathon
-docker run -d --name cashguard --restart unless-stopped --gpus all \
+docker build --target gpu -t YOUR_REGISTRY/observer:datathon .
+docker push YOUR_REGISTRY/observer:datathon
+docker run -d --name observer --restart unless-stopped --gpus all \
   --shm-size 8g -p 8000:8000 -e API_KEY \
   -e ANALYZER=ml:analyze -e VLLM_ENABLED=1 \
-  -v /absolute/workspace:/workspace YOUR_REGISTRY/cashguard:datathon
+  -v /absolute/workspace:/workspace YOUR_REGISTRY/observer:datathon
 ```
 
 Код `ml` уже подключён. UI собирается из исходников этапом `frontend-build`
@@ -63,7 +63,7 @@ vllm serve Qwen/Qwen3-VL-8B-Instruct --host 127.0.0.1 --port 8001 \
 Проверка CPU-заглушки без внешней сети:
 
 ```bash
-export IMAGE=cashguard:stub
+export IMAGE=observer:stub
 export VIDEO_DIR=/absolute/path/to/videos
 export VIDEO_FILE=sample.mov
 export VIDEO_SOURCE=dataset  # synthetic для сгенерированного видео
@@ -72,7 +72,7 @@ export VLLM_ENABLED=0
 bash deploy/offline-check.sh
 ```
 
-Образ нужно предварительно собрать с сетью (`docker build --target stub -t cashguard:stub .`).
+Образ нужно предварительно собрать с сетью (`docker build --target stub -t observer:stub .`).
 Офлайн-проверка использует только уже имеющийся образ (`--pull never`). `API_KEY`
 должен быть задан в окружении; его значение не передаётся аргументом командной строки.
 Для каждого прогона лучше использовать отдельный пустой WORKSPACE_DIR.
@@ -81,7 +81,7 @@ bash deploy/offline-check.sh
 
 ```powershell
 $env:API_KEY = python -c 'import secrets; print(secrets.token_urlsafe(32))'
-$env:IMAGE = 'cashguard:stub'
+$env:IMAGE = 'observer:stub'
 $env:VIDEO_DIR = 'C:/absolute/path/to/videos'
 $env:VIDEO_FILE = 'sample.mov'
 $env:VIDEO_SOURCE = 'dataset'
@@ -112,7 +112,7 @@ MSYS_NO_PATHCONV предотвращает подмену путей `/workspac
 Успех со stub не является подтверждением работы реального ML без сети.
 Изоляция блокирует внешний трафик; журнал надо проверить также на попытки сетевых обращений.
 
-17.10.2026 проверен локальный образ `cashguard:stub-offline-check` на Docker Desktop
+17.10.2026 проверен локальный образ `observer:stub-offline-check` на Docker Desktop
 4.43.1 / Engine 28.3.0, Linux amd64: Python 3.12.15, FFmpeg 7.1.5, `pip check` без
 конфликтов. Сетевая изоляция, HTTP-приёмка, шесть загрузок и рестарт прошли.
 Локальный image ID: `sha256:06cd2c1bd2764078eeb904c9fa999657a913b0d50dada5226edea8c1f0d3199f`.
@@ -129,9 +129,9 @@ MSYS_NO_PATHCONV предотвращает подмену путей `/workspac
 
 ```bash
 # API_KEY должен быть задан в окружении; значение в команду не подставлять.
-docker run --pull never -d --name cashguard-offline-ui --network none \
-  -e API_KEY -v cashguard-offline-ui:/workspace cashguard:stub
-python deploy/offline-browser.py --container cashguard-offline-ui --port 8087
+docker run --pull never -d --name observer-offline-ui --network none \
+  -e API_KEY -v observer-offline-ui:/workspace observer:stub
+python deploy/offline-browser.py --container observer-offline-ui --port 8087
 ```
 
 Команды работают и из PowerShell (команду docker run записать одной строкой).
@@ -145,7 +145,7 @@ origin, JPEG разрешены также через data URL. Кеширова
 Он слушает только 127.0.0.1 и не сохраняет ключи/cookie/тела запросов в журналы.
 
 После проверки остановите мост Ctrl+C и удалите тестовый контейнер:
-`docker rm -f cashguard-offline-ui`. Данные остаются в одноимённом volume.
+`docker rm -f observer-offline-ui`. Данные остаются в одноимённом volume.
 Отдельно проверяйте публичный HTTPS и Safari: локальный мост их не подтверждает.
 
 ## RunPod и восстановление

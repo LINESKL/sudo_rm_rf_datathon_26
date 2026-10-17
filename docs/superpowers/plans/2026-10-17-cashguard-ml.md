@@ -1,4 +1,4 @@
-# CashGuard ML Implementation Plan
+# Observer ML Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -420,7 +420,7 @@ def fmt_t(t: float) -> str:
 
 ```python
 # ml/__init__.py
-"""CashGuard ML: analyze(video_path) -> AnalysisResult."""
+"""Observer ML: analyze(video_path) -> AnalysisResult."""
 ```
 
 - [ ] **Step 7: Тесты зелёные**
@@ -1342,7 +1342,7 @@ def analyze(video_path, deadline_s: float = 240.0, on_progress=None, client=None
 
 ```python
 # ml/__init__.py
-"""CashGuard ML: analyze(video_path) -> AnalysisResult."""
+"""Observer ML: analyze(video_path) -> AnalysisResult."""
 from ml.pipeline import analyze  # noqa: F401
 ```
 

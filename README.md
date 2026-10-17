@@ -1,6 +1,6 @@
 <div align="center">
 
-# GuardTusk — Datathon 2026
+# Observer — Datathon 2026
 
 Проверка видеозаписей кассовых операций с объяснением находок.
 
@@ -130,8 +130,8 @@ origin отправляет её автоматически. Один URL без
 CPU-образ для проверки заглушки:
 
 ```bash
-docker build --target stub -t cashguard:stub .
-docker run --rm -p 8000:8000 -e API_KEY -v cashguard-data:/workspace cashguard:stub
+docker build --target stub -t observer:stub .
+docker run --rm -p 8000:8000 -e API_KEY -v observer-data:/workspace observer:stub
 ```
 
 GPU-образ, запуск vLLM, RunPod, восстановление и проверка без сети:
