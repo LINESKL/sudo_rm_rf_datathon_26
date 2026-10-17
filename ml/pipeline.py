@@ -4,7 +4,7 @@ import time
 
 from ml.catalog import fmt_t, load_catalog, norm_for
 from ml.quality import degraded_intervals, mark_degraded
-from ml.rules import RULES, Candidate, run_rules
+from ml.rules import Candidate, run_rules
 from ml.sampling import choose_times, motion_score
 from ml.sensor import sense
 from ml.timeline import Scene
@@ -27,6 +27,11 @@ STAGE_HOOKS.extend([verify, actions_hook, screen_hook, outsider_hook])
 
 # ponytail: procedure windows (ml/procedures.py) are off — 0 finds on 40 videos, a third of the GPU load.
 # ponytail: open pass (ml/open_pass.py) is off — on 32 videos it produced only false positives.
+
+
+# Every type the hooks and rules can report (shown to the reviewer as "types checked").
+REPORTED_TYPES = {"workstation_unlocked", "cash_unattended", "safe_unsecured", "personal_items",
+                  "eating_drinking", "outsider_cashier_zone", "door_left_open", "banknote_check_skipped"}
 
 
 def too_many_failures(failures: int, calls: int) -> bool:
@@ -100,5 +105,5 @@ def analyze(video_path, deadline_s: float = 240.0, on_progress=None, client=None
     degraded |= too_many_failures(failed, getattr(client, "calls", 0) - calls_before) or left() <= 0
     progress("done", 1.0)
     return AnalysisResult(duration_sec=duration, violations=violations, timeline=scene.timeline_json(),
-                          rules_checked=len(RULES), processing_sec=time.monotonic() - started,
+                          rules_checked=len(REPORTED_TYPES), processing_sec=time.monotonic() - started,
                           degraded=degraded)

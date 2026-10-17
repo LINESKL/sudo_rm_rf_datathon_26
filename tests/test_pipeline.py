@@ -87,3 +87,9 @@ def test_rare_vlm_failures_do_not_mark_the_result_degraded():
     assert not too_many_failures(failures=2, calls=60)
     assert too_many_failures(failures=7, calls=60)
     assert too_many_failures(failures=3, calls=10)
+
+
+def test_rules_checked_counts_every_reported_violation_type():
+    from ml.catalog import load_catalog
+    from ml.pipeline import REPORTED_TYPES
+    assert len(REPORTED_TYPES) == 8 and REPORTED_TYPES <= set(load_catalog())
