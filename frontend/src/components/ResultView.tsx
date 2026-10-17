@@ -5,7 +5,9 @@ import {
   CircleAlert,
   ExternalLink,
   ImageOff,
+  Link2,
   Play,
+  Printer,
   ScanSearch,
   ShieldCheck,
   Upload,
@@ -29,6 +31,8 @@ import { timecode } from '@/lib/timecode'
 import { VideoPreview } from './VideoPreview'
 import type { VideoPreviewHandle } from './VideoPreview'
 import { Timeline } from './Timeline'
+import { ReviewDecision } from './ReviewDecision'
+import { useReview } from '@/lib/useReview'
 
 function EvidenceImage({ frame, large = false }: { frame: EvidenceFrame; large?: boolean }) {
   const [failed, setFailed] = useState(false)
@@ -171,6 +175,9 @@ export function ResultView({
     null,
   )
   const [selected, setSelected] = useState<{ jobId: string; index: number } | null>(null)
+  const [copied, setCopied] = useState(false)
+  const { review, update } = useReview(result.job_id)
+  const reviewed = result.violations.filter((_, index) => review[index]).length
   const canSeek =
     availability?.jobId === result.job_id
       ? availability.available
@@ -276,6 +283,40 @@ export function ResultView({
             с
           </strong>
         </span>
+      </div>
+      <p className="print-only">
+        Отчёт Observer · задача {result.job_id} · {new Date().toLocaleString('ru-RU')}
+      </p>
+      <div className="result-actions">
+        <Button type="button" className="h-10 rounded-xl" onClick={() => window.print()}>
+          <Printer aria-hidden="true" /> Отчёт / PDF
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10 rounded-xl"
+          onClick={() => {
+            void navigator.clipboard
+              ?.writeText(window.location.href)
+              .then(() => setCopied(true))
+              .catch(() => setCopied(false))
+          }}
+        >
+          <Link2 aria-hidden="true" /> Скопировать ссылку
+        </Button>
+        {copied && (
+          <span className="small-note" role="status">
+            Ссылка скопирована
+          </span>
+        )}
+        {result.violations.length > 0 && (
+          <span className="review-progress">
+            Проверено {reviewed} из {result.violations.length}
+            <span className="review-progress-bar" aria-hidden="true">
+              <span style={{ width: `${(reviewed / result.violations.length) * 100}%` }} />
+            </span>
+          </span>
+        )}
       </div>
       {serviceMode === 'stub' && (
         <Alert className="mb-5 rounded-xl border-0 bg-muted">
@@ -457,6 +498,10 @@ export function ResultView({
                 )}
               </div>
             </div>
+            <ReviewDecision
+              decision={review[index]}
+              onChange={(decision) => update(index, decision)}
+            />
           </CardContent>
         </Card>
       ))}

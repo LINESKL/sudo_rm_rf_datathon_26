@@ -598,50 +598,6 @@
     .how-steps {
       grid-template-columns: minmax(0, 1fr);
     }
-    .file-thumb {
-      width: min(100%, 280px);
-      aspect-ratio: 16 / 9;
-      object-fit: cover;
-      border-radius: 12px;
-      margin-bottom: 12px;
-    }
-    .file-summary-thumb {
-      width: 96px;
-      aspect-ratio: 16 / 9;
-      flex-shrink: 0;
-      object-fit: cover;
-      border-radius: 10px;
-    }
-    .how-steps {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      margin: 20px 0 0;
-      padding: 0;
-      list-style: none;
-      counter-reset: how;
-      font-size: 14px;
-      color: var(--text-muted);
-    }
-    .how-steps li {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      counter-increment: how;
-    }
-    .how-steps li::before {
-      content: counter(how);
-      flex-shrink: 0;
-      display: grid;
-      place-items: center;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: var(--muted);
-      color: var(--primary);
-      font-size: 13px;
-      font-weight: 600;
-    }
     .event-body {
       grid-template-columns: minmax(0, 1fr);
       gap: 16px;
@@ -1026,6 +982,109 @@
     font-size: 12px;
     color: var(--text-muted);
   }
+  .file-thumb {
+    width: min(100%, 280px);
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+  .file-summary-thumb {
+    width: 96px;
+    aspect-ratio: 16 / 9;
+    flex-shrink: 0;
+    object-fit: cover;
+    border-radius: 10px;
+  }
+  .how-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 20px 0 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: how;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+  .how-steps li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    counter-increment: how;
+  }
+  .how-steps li::before {
+    content: counter(how);
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--muted);
+    color: var(--primary);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .result-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    margin: -8px 0 24px;
+  }
+  .review-progress {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .review-progress-bar {
+    width: 96px;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 3px;
+    background: var(--muted);
+  }
+  .review-progress-bar span {
+    display: block;
+    height: 100%;
+    background: var(--ok);
+    transition: width 200ms;
+  }
+  .review-decision {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .review-caption {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .review-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .review-comment {
+    flex-basis: 100%;
+    min-height: 64px;
+    padding: 8px 12px;
+    border: 1px solid var(--input);
+    border-radius: 12px;
+    font: inherit;
+    font-size: 14px;
+    resize: vertical;
+  }
+  .print-only {
+    display: none;
+  }
   .event-body {
     display: grid;
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
@@ -1194,5 +1253,40 @@
     color: var(--brand);
     text-decoration: underline;
     text-underline-offset: 3px;
+  }
+}
+
+@media print {
+  .site-header .private-label,
+  .workflow,
+  .preview-section,
+  .event-nav,
+  .timeline-section,
+  .result-actions,
+  .evidence-thumbs,
+  .evidence-zoom,
+  .evidence-show,
+  .review-option:not([aria-pressed='true']),
+  .result-body > button:last-child {
+    display: none !important;
+  }
+  body,
+  .app-shell {
+    background: #fff;
+  }
+  .print-only {
+    display: block;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .event-card {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+  .review-comment {
+    border: 0;
+    padding: 0;
+    resize: none;
   }
 }

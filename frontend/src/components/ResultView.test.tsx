@@ -247,6 +247,10 @@ describe('ResultView', () => {
     render(<ResultView result={result([event()])} onReset={vi.fn()} serviceMode="pipeline" />)
     const trigger = screen.getByRole('button', { name: 'Увеличить кадр 1 события 1, 8.625 с' })
     await user.tab()
+    expect(screen.getByRole('button', { name: 'Отчёт / PDF' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Скопировать ссылку' })).toHaveFocus()
+    await user.tab()
     expect(screen.getByLabelText('Плеер загруженного видео')).toHaveFocus()
     await user.tab()
     // Preview access refresh no longer needs a key, so it is a real tab stop now.
@@ -637,5 +641,47 @@ describe('ResultView evidence gallery', () => {
     render(<ResultView result={result([event()])} onReset={vi.fn()} serviceMode="pipeline" />)
     expect(screen.getByRole('heading', { name: 'Норматив' })).toBeVisible()
     expect(screen.getByRole('img', { name: 'Уверенность 3 из 3' })).toBeVisible()
+  })
+})
+
+describe('ResultView reviewer workflow', () => {
+  it('records a decision per finding, counts progress and restores it after a reload', async () => {
+    localStorage.clear()
+    const user = userEvent.setup()
+    const details = result([event(0), event(1)])
+    const view = render(<ResultView result={details} onReset={vi.fn()} serviceMode="pipeline" />)
+    expect(screen.getByText('Проверено 0 из 2')).toBeVisible()
+    const card = screen.getByRole('article', { name: 'Событие 1: Событие 1' })
+    const confirm = within(card).getByRole('button', { name: 'Нарушение подтверждаю' })
+    await user.click(confirm)
+    expect(confirm).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Проверено 1 из 2')).toBeVisible()
+    await user.type(within(card).getByRole('textbox', { name: 'Комментарий проверяющего' }), 'ок')
+    view.unmount()
+
+    render(<ResultView result={details} onReset={vi.fn()} serviceMode="pipeline" />)
+    const restored = screen.getByRole('article', { name: 'Событие 1: Событие 1' })
+    expect(within(restored).getByRole('button', { name: 'Нарушение подтверждаю' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(within(restored).getByRole('textbox', { name: 'Комментарий проверяющего' })).toHaveValue(
+      'ок',
+    )
+    await user.click(within(restored).getByRole('button', { name: 'Нарушение подтверждаю' }))
+    expect(screen.getByText('Проверено 0 из 2')).toBeVisible()
+  })
+
+  it('prints the report and copies the link to this check', async () => {
+    const user = userEvent.setup()
+    const print = vi.spyOn(window, 'print').mockImplementation(() => {})
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    render(<ResultView result={result([event()])} onReset={vi.fn()} serviceMode="pipeline" />)
+    await user.click(screen.getByRole('button', { name: 'Отчёт / PDF' }))
+    expect(print).toHaveBeenCalledOnce()
+    await user.click(screen.getByRole('button', { name: 'Скопировать ссылку' }))
+    expect(writeText).toHaveBeenCalledWith(window.location.href)
+    expect(await screen.findByText('Ссылка скопирована')).toBeVisible()
   })
 })

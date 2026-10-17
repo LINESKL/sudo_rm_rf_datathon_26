@@ -290,6 +290,10 @@ describe('F5 accessible upload flow', () => {
       expect(screen.getByRole('heading', { name: 'Результат проверки' })).toHaveFocus(),
     )
     await user.tab()
+    expect(screen.getByRole('button', { name: 'Отчёт / PDF' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Скопировать ссылку' })).toHaveFocus()
+    await user.tab()
     expect(screen.getByRole('button', { name: 'Обновить доступ к видео' })).toHaveFocus()
     await user.tab()
     expect(screen.getByRole('button', { name: 'Новое видео' })).toHaveFocus()
