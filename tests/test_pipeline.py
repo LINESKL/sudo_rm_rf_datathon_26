@@ -23,9 +23,10 @@ def test_analyze_clean(tiny_video, fake_vlm_cls):
     assert r.verdict == "no_violation" and r.rules_checked > 0
     assert set(r.to_jury("j")) == {"job_id", "status", "verdict", "violations"}
 
-def test_analyze_vlm_down_is_degraded(tiny_video, fake_vlm_cls):
-    r = analyze(tiny_video, client=fake_vlm_cls(lambda i, p: None), workers=1)
-    assert r.verdict == "no_violation" and r.degraded
+def test_analyze_vlm_down_raises(tiny_video, fake_vlm_cls):
+    import pytest
+    with pytest.raises(RuntimeError, match="degraded"):
+        analyze(tiny_video, client=fake_vlm_cls(lambda i, p: None), workers=1)
 
 
 def test_min_confidence_filters(tiny_video, fake_vlm_cls, monkeypatch):

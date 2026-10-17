@@ -54,7 +54,7 @@ def test_hard_restart_and_loadtest(settings, video, tmp_path):
         with httpx.Client(base_url=url, headers={"X-API-Key": settings.api_key}, trust_env=False) as client:
             with video.open("rb") as stream:
                 response = client.post("/api/v1/analyze", files={"file": (video.name, stream)})
-            assert response.status_code == 202
+            assert response.status_code == 200
             job_id = response.json()["job_id"]
             marker = settings.data_dir / "results" / f"{job_id}.pid"
             for _ in range(50):

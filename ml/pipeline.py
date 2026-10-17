@@ -67,6 +67,8 @@ def analyze(video_path, deadline_s: float = 240.0, on_progress=None, client=None
     progress("detect", 0.2)
     progress("scene", 0.3)
     samples = sense(client, frames, workers=workers)
+    if frames and not samples:
+        raise RuntimeError("VLM unavailable: no frame could be analysed (degraded)")
     degraded = not samples or len(samples) != len(frames)
     scene = Scene(samples, duration)
     cands = run_rules(scene)

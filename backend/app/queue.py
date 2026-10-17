@@ -4,8 +4,10 @@ import logging
 import os
 import signal
 import sys
+import time
 
 import psutil
+from pydantic import ValidationError
 
 from .config import ROOT, Settings
 from .schemas import JobOutput, Progress
@@ -20,7 +22,10 @@ def kill_process_tree(pid: int):
         children = parent.children(recursive=True)
         if os.name == "posix":
             # Runner owns a session: kill ffmpeg and any model subprocesses together.
-            os.killpg(pid, signal.SIGKILL)
+            try:
+                os.killpg(pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                parent.kill()  # not a group leader (e.g. started without a new session)
         else:
             # Stop the parent first so it cannot create another child during cleanup.
             parent.kill()
@@ -86,6 +91,10 @@ class JobQueue:
 
     async def run(self, job_id: str):
         row = self.store.get(job_id)
+        # The jury's 5-minute clock starts at upload: time spent queued counts too.
+        remaining = self.settings.job_timeout_s - (time.time() - row["created_at"])
+        if remaining <= 1:
+            raise TimeoutError("Job waited in queue past its deadline")
         result_path = self.settings.data_dir / "results" / f"{job_id}.json"
         preview_path = self.settings.data_dir / "previews" / f"{job_id}.mp4"
         result_path.unlink(missing_ok=True)
@@ -98,7 +107,7 @@ class JobQueue:
             process = await asyncio.create_subprocess_exec(
                 sys.executable, "-m", "backend.app.runner", "--video", row["video_path"],
                 "--preview", str(preview_path), "--result", str(result_path),
-                "--analyzer", self.settings.analyzer, "--timeout", str(self.settings.job_timeout_s),
+                "--analyzer", self.settings.analyzer, "--timeout", str(remaining),
                 "--analysis-timeout", str(self.settings.ml_deadline_s), "--job-id", job_id,
                 stdout=asyncio.subprocess.PIPE, stderr=log, env=env,
                 start_new_session=os.name == "posix",
@@ -107,9 +116,12 @@ class JobQueue:
                 marker = result_path.with_suffix(".pid")
                 marker.write_text(json.dumps({"pid": process.pid,
                                              "created_at": psutil.Process(process.pid).create_time()}))
-                async with asyncio.timeout(self.settings.job_timeout_s):
+                async with asyncio.timeout(remaining):
                     while line := await process.stdout.readline():
-                        self.store.progress(job_id, Progress.model_validate_json(line))
+                        try:
+                            self.store.progress(job_id, Progress.model_validate_json(line))
+                        except ValidationError:
+                            logger.warning("Job %s: ignoring non-protocol stdout line", job_id)
                     code = await process.wait()
                     if code:
                         raise RuntimeError(f"Runner exited {code}; see {job_id}.log")

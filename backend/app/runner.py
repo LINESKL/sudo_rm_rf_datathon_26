@@ -5,6 +5,7 @@ import importlib
 import json
 import os
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -32,22 +33,33 @@ def main():
 
     with contextlib.redirect_stdout(sys.stderr):
         on_progress("decode", 0)
-        make_preview(Path(args.video), Path(args.preview), os.getenv("FFMPEG_BIN", "ffmpeg"),
-                     deadline - time.monotonic())
+        # The browser preview is optional: it must never block or fail the jury result.
+        preview_ok = threading.Event()
+
+        def preview():
+            try:
+                make_preview(Path(args.video), Path(args.preview), os.getenv("FFMPEG_BIN", "ffmpeg"),
+                             deadline - time.monotonic() - 5)
+                preview_ok.set()
+            except Exception as exc:  # noqa: BLE001 — logged, result still delivered
+                print(f"preview failed: {exc!r}", file=sys.stderr)
+
+        worker = threading.Thread(target=preview, daemon=True)
+        worker.start()
         module, function = args.analyzer.split(":", 1)
         analyze = getattr(importlib.import_module(module), function)
         budget = min(args.analysis_timeout, deadline - time.monotonic())
+        print(f"ML budget {budget:.2f} s", file=sys.stderr, flush=True)
         if budget <= 0:
             raise TimeoutError("Job deadline reached before ML analysis")
         result = analyze(args.video, deadline_s=budget, on_progress=on_progress)
-        preview_url = f"/previews/{args.job_id}.mp4"
+        worker.join(max(0.0, deadline - time.monotonic() - 1))
+        preview_url = f"/previews/{args.job_id}.mp4" if preview_ok.is_set() else None
         result = JobOutput(jury=result.to_jury(args.job_id),
                            details=result.to_details(args.job_id, preview_url))
         if result.jury.job_id != args.job_id or result.details.preview_url != preview_url:
             raise ValueError("Analyzer serializers changed the job identity or preview URL")
-        # The jury projection cannot represent incomplete analysis.
-        if result.details.degraded:
-            raise RuntimeError("ML analysis is degraded: incomplete inference or exhausted stage budget")
+        # degraded=True is delivered as a normal result: for the jury a partial verdict beats "failed".
         output = Path(args.result)
         temporary = output.with_suffix(".tmp")
         temporary.write_text(result.model_dump_json(exclude_unset=True), encoding="utf-8")

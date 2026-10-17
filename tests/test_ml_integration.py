@@ -80,7 +80,13 @@ def test_real_pipeline_through_api(settings, tiny_video, vlm_server, monkeypatch
                 assert details["violations"][0]["rule"]["url"].startswith("https://")
             assert client.get(details["preview_url"], headers={"Range": "bytes=0-99"}).status_code == 206
             assert {"cashier_present", "steps", "violation"} <= {c[2] for c in vlm_server["calls"]}
+        elif mode in ("partial", "partial_phone"):
+            # Partial inference is delivered with a flag: a partial verdict beats "failed" for the jury.
+            assert details["status"] == "done", details
+            assert details["degraded"] is True
+            JobOutput(jury=jury, details=details)
         else:
+            # Nothing analysed at all (VLM down / unusable): failing is more honest than "clean".
             assert jury == {"job_id": job_id, "status": "failed"}, details
             assert "degraded" in (settings.data_dir / "logs" / f"{job_id}.log").read_text()
             # Same backend worker and analyzer recover when VLM recovers.

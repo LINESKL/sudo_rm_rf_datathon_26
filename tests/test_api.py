@@ -33,7 +33,7 @@ def wait_done(client, job_id, timeout=25):
 def submit(client, video):
     with video.open("rb") as content:
         response = client.post("/api/v1/analyze", headers=HEADERS, files={"file": (video.name, content)})
-    assert response.status_code == 202, response.text
+    assert response.status_code == 200, response.text
     assert set(response.json()) == {"job_id"}
     return response.json()["job_id"]
 
@@ -101,7 +101,7 @@ async def test_six_jobs_max_three_concurrent(settings, video):
             responses = await asyncio.gather(*[
                 client.post("/api/v1/analyze", files={"file": (video.name, video.read_bytes())}) for _ in range(6)
             ])
-            assert all(r.status_code == 202 for r in responses)
+            assert all(r.status_code == 200 for r in responses)
             ids = [r.json()["job_id"] for r in responses]
             await asyncio.wait_for(app.state.queue.queue.join(), timeout=35)
             rows = [app.state.store.get(job_id) for job_id in ids]

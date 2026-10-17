@@ -57,3 +57,25 @@ def ml_contract(video_path, *, deadline_s, on_progress):
                     "timeline_labels": {"bag_on_desk": "Сумка инкассации на столе"}}
 
     return Result()
+
+
+def degraded(video_path, deadline_s, on_progress):
+    """Partial ML result: some VLM calls failed, but a verdict exists."""
+    class Result:
+        def to_jury(self, job_id):
+            return {"job_id": job_id, "status": "done", "verdict": "no_violation", "violations": []}
+
+        def to_details(self, job_id, preview_url):
+            return {"job_id": job_id, "status": "done", "verdict": "no_violation", "violations": [],
+                    "preview_url": preview_url, "degraded": True, "rules_checked": 13}
+    return Result()
+
+
+def noisy(video_path, deadline_s, on_progress):
+    os.write(1, b"native library chatter on fd 1\n")  # bypasses redirect_stdout
+    return clean(video_path, deadline_s, on_progress)
+
+
+def slow(video_path, deadline_s, on_progress):
+    time.sleep(3)
+    return clean(video_path, deadline_s, on_progress)

@@ -56,7 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                        expose_headers=["Content-Range", "Accept-Ranges", "Content-Length"])
     api = APIRouter(prefix="/api/v1", dependencies=[Depends(require_api_key)])
 
-    @api.post("/analyze", response_model=JobCreated, status_code=202, openapi_extra={
+    @api.post("/analyze", response_model=JobCreated, status_code=200, openapi_extra={
         "requestBody": {"required": True, "content": {"multipart/form-data": {"schema": {
             "type": "object", "required": ["file"],
             "properties": {"file": {"type": "string", "format": "binary"}},
@@ -64,13 +64,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     })
     async def analyze(request: Request):
         # Explicit limits prevent extra multipart fields/files from filling temporary disk.
-        async with request.form(max_files=1, max_fields=0) as form:
+        async with request.form(max_files=1, max_fields=5) as form:
             upload = form.get("file")
             if upload is None or not hasattr(upload, "filename"):
                 raise HTTPException(400, "Передайте видео в multipart-поле file")
+            # Container is validated by ffprobe below; the client's filename may lack an extension.
             extension = Path(upload.filename or "").suffix.lower()
             if extension not in {".mov", ".mp4"}:
-                raise HTTPException(400, "Разрешены только файлы .mov и .mp4")
+                extension = ".mov"
             job_id = uuid4().hex
             destination = settings.data_dir / "uploads" / f"{job_id}{extension}"
             await save_upload(upload, destination, settings.max_upload_bytes)
