@@ -52,7 +52,7 @@
 
 ```
 backend/   API, очередь, хранение, превью видео        — бэк
-frontend/  HTML + JS без сборки и CDN                   — фронт
+frontend/  статика (стек и дизайн — docs/frontend/BRIEF.md)  — фронт
 ml/        пайплайн, каталог, правила                    — ML
 eval/      прогон на 42 роликах, метрики жюри            — ML
 docs/      ТЗ-артефакты, исследования, спеки
@@ -248,8 +248,11 @@ VLM размечает **шаги** по окнам 4 с (4 кадра): `client
 
 - `POST /api/v1/analyze` — multipart `file`, до 200 МБ, только `.mov`/`.mp4`, ответ `{"job_id": "..."}`.
 - `GET /api/v1/jobs/{id}` — строго схема ТЗ: `status` ∈ `processing | done | failed`, при `done` — `verdict` и `violations`.
-- `GET /api/v1/jobs/{id}/details` — для нашего UI: `progress` (этап, 0–1), `type_id`, `confidence`,
-  `timecode_end_sec`, `rule` (документ, пункт, цитата, ссылка), `timeline`, `processing_sec`, `preview_url`.
+- `GET /api/v1/jobs/{id}/details` — для нашего UI. Эталон формата: `docs/frontend/mock_details*.json`.
+  Верхний уровень: `status`, `verdict`, `progress {stage, value}`, `stages[]`, `duration_sec`, `processing_sec`,
+  `rules_checked`, `preview_url`, `timeline {key: [[t0, t1], …]}`, `timeline_labels {key: подпись}`.
+  По нарушению: поля жюри + `type_id`, `timecode_end_sec`, `confidence`, `confidence_level` (low/medium/high),
+  `observed` («что видно»), `why` («почему может быть нарушением»), `rule {document, point, quote, url} | null`.
 - `X-API-Key` обязателен на всех `/api/*`, без него `401`. Ключ из переменной окружения.
 - Задачи переживают рестарт (SQLite), незавершённые ставятся в очередь заново.
 - Бэк делает h264-превью для плеера в браузере (`.mov` может быть HEVC).

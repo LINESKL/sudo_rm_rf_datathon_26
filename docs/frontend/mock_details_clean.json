@@ -1,0 +1,51 @@
+{
+  "job_id": "3f2a9c1e",
+  "status": "done",
+  "verdict": "no_violation",
+  "progress": {
+    "stage": "done",
+    "value": 1.0
+  },
+  "stages": [
+    {
+      "id": "decode",
+      "title": "Подготовка видео"
+    },
+    {
+      "id": "detect",
+      "title": "Люди и предметы"
+    },
+    {
+      "id": "scene",
+      "title": "Анализ сцены"
+    },
+    {
+      "id": "verify",
+      "title": "Проверка находок"
+    }
+  ],
+  "duration_sec": 20.9,
+  "processing_sec": 74.2,
+  "rules_checked": 13,
+  "preview_url": "/previews/3f2a9c1e.mp4",
+  "violations": [],
+  "timeline_labels": {
+    "cashier_present": "Кассир на месте",
+    "cash_on_desk": "Деньги на столе",
+    "safe_open": "Сейф открыт",
+    "screen_unlocked": "Экран разблокирован",
+    "outsider_in_cashier_zone": "Посторонний в зоне кассира"
+  },
+  "timeline": {
+    "cashier_present": [
+      [
+        0,
+        20.9
+      ]
+    ],
+    "cash_on_desk": [],
+    "safe_open": [],
+    "screen_unlocked": [],
+    "outsider_in_cashier_zone": []
+  }
+}
