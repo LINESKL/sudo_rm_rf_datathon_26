@@ -1,6 +1,6 @@
 <div align="center">
 
-# GuardTusk: проверки F0, F1, F2 и F5
+# Observer: проверки F0, F1, F2 и F5
 
 </div>
 
@@ -15,7 +15,7 @@
 
 - [x] Кейс/FAQ сопоставлены с задачами, обязательный сценарий отделён от улучшений.
 - [x] React 18, Vite, TypeScript, Tailwind 4, shadcn/ui и aliases сверены с установленными пакетами и конфигурацией.
-- [x] GuardTusk, светлые токены Forte, локальный Open Sans и минимальная рабочая колонка сохранены.
+- [x] Observer, светлые токены Forte, локальный Open Sans и минимальная рабочая колонка сохранены.
 - [x] Production содержит локальные ресурсы; демо-ключ и пример нормативной цитаты отсутствуют в JS.
 - [x] Порядок F1 → F2 → F5 → F6 проверен, пользователь разрешил переход к F1.
 
@@ -380,3 +380,25 @@ expected-main-assets, frontend-http, jobs-audit); `/private/tmp/guardtusk-f6-ml-
 (pytest, reproduce.py/json). Скриншоты: `output/playwright/f6-public-redeploy-375.png`,
 `f6-public-redeploy-1440.png`, `f6-redeploy-partial-production.png`, `f6-redeploy-unconfirmed-375.png`.
 Ключей, роликов и кадров датасета в Git нет.
+
+<div align="center">
+
+## F3/F4 и полировка результата, 17.10.2026
+
+</div>
+
+Ветка `frontend-polish` от `origin/main` (e8c2d1e). Код F3/F4 перенесён из
+`AIrevision/MAIN-13-production-checks` только в части `frontend/`; баннер и округление
+таймкода — по актуальному main.
+
+- [x] Шкала событий под плеером: метка на интервал `timecode_sec`–`timecode_end_sec`,
+  перекрытия — отдельными строками; клик по метке, таймкоду или «В видео» у кадра → t−1 с,
+  карточка подсвечивается сразу и до конца своего интервала.
+- [x] Баннер вердикта первым, рядом — примечание о проверке человеком; факты: правила,
+  длительность записи, время обработки. `rule:null` → «Норматив не определён, требуется проверка.»
+- [x] `stage=queued` → «В очереди», все этапы «Ожидание», без выдуманного процента.
+- [x] 232 теста, ESLint, TypeScript, Prettier и production build проходят; 375 px без горизонтальной прокрутки.
+
+Скриншоты в `docs/frontend/screenshots/` сняты на моках `mock_details*.json` и однотонном
+демо-видео `frontend/dev/demo-preview.mp4` (локальный mock backend с `mode: pipeline`,
+`degraded: false`), а не на реальной записи. Кадров и роликов датасета в них нет.

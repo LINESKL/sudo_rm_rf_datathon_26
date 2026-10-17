@@ -110,6 +110,7 @@ export function App() {
   const result = analysis.details?.status === 'done' && analysis.done ? analysis.details : null
   const activeStage =
     analysis.details?.status === 'processing' ? analysis.details.progress.stage : null
+  const queued = activeStage === 'queued'
   const stageIndex = FALLBACK_STAGES.findIndex((stage) => stage.id === activeStage)
   const hasKnownStage = stageIndex >= 0
   const progress =
@@ -219,13 +220,13 @@ export function App() {
     <div className="app-shell">
       <header className="site-header">
         <div className="header-inner">
-          <a className="brand" href="/" aria-label="GuardTusk — главная">
+          <a className="brand" href="/" aria-label="Observer — главная">
             <span className="brand-mark">
               <ScanLine size={23} strokeWidth={1.8} />
             </span>
-            <span>GuardTusk</span>
+            <span>Observer</span>
           </a>
-          <div className="header-description">Видеопроверка кассовых операций</div>
+          <div className="header-description">AI-проверка кассовой дисциплины по видео</div>
           <span className="private-label">
             <LockKeyhole size={14} /> Закрытый контур
           </span>
@@ -311,7 +312,13 @@ export function App() {
 
             <CardContent className="p-0">
               {result ? (
-                <ResultView result={result} onReset={newVideo} serviceMode={serviceMode} />
+                <ResultView
+                  key={result.job_id}
+                  result={result}
+                  onReset={newVideo}
+                  serviceMode={serviceMode}
+                  apiKey={analysis.job?.key ?? ''}
+                />
               ) : (
                 <form onSubmit={submit} noValidate>
                   {!processing && !analysis.uploading && (
@@ -407,7 +414,7 @@ export function App() {
                             variant="secondary"
                             className="ml-auto rounded-full px-2.5 py-1 text-brand"
                           >
-                            В работе
+                            {queued ? 'В очереди' : 'В работе'}
                           </Badge>
                         )}
                       </div>
@@ -416,6 +423,10 @@ export function App() {
                           value={analysis.uploading ? analysis.uploadProgress : progress}
                           label={analysis.uploading ? 'Отправка файла' : 'Обработка видео'}
                         />
+                      ) : queued ? (
+                        <p role="status">
+                          Задача в очереди. Анализ начнётся, когда освободится обработчик.
+                        </p>
                       ) : (
                         <p role="status">Обработка продолжается. Ожидаем результат.</p>
                       )}
@@ -429,7 +440,7 @@ export function App() {
                             : 'Дождитесь окончания отправки. Не закрывайте страницу.'}
                         </p>
                       )}
-                      {processing && hasKnownStage && (
+                      {processing && (hasKnownStage || queued) && (
                         <ol className="processing-stages">
                           {FALLBACK_STAGES.map((stage, index) => (
                             <li
@@ -608,12 +619,14 @@ export function App() {
             </CardContent>
           </Card>
         </div>
-        <Alert role="note" className="human-note flex border-0 bg-transparent p-0">
-          <ShieldCheck size={18} />
-          <AlertDescription className="text-xs max-[600px]:text-[11px]">
-            Результат — подсказка для проверки человеком. Решение принимает специалист.
-          </AlertDescription>
-        </Alert>
+        {!result && (
+          <Alert role="note" className="human-note flex border-0 bg-transparent p-0">
+            <ShieldCheck size={18} />
+            <AlertDescription className="text-xs max-[600px]:text-[11px]">
+              Результат — подсказка для проверки человеком. Решение принимает специалист.
+            </AlertDescription>
+          </Alert>
+        )}
       </main>
     </div>
   )

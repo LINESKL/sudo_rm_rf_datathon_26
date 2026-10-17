@@ -1,6 +1,6 @@
 <div align="center">
 
-# GuardTusk: frontend по кейсу ForteBank
+# Observer: frontend по кейсу ForteBank
 
 </div>
 
@@ -47,7 +47,7 @@ UI представляет доказательства для оценки, н
 
 - **Кейс:** .mov около 29 МБ, минимум 40 обучающих роликов по 10–145 с, FPS от 29 (с.5–6).
   MP4 и максимум 200 МиБ — расширения проекта; это не лимиты организатора.
-- **Пользователь:** название GuardTusk, React + Vite, shadcn/ui, минимальный UI в стиле Forte.
+- **Пользователь:** название Observer, React + Vite, shadcn/ui, минимальный UI в стиле Forte.
   TypeScript, русский язык, светлая тема и same-origin раздача FastAPI закреплены в брифе проекта.
   FAQ26 разрешает команде выбрать язык.
 - **Команда:** `/details`, четыре этапа, polling 1,5 с, confidence, плеер, lightbox и дорожки.
@@ -127,7 +127,7 @@ F1 остаётся **In Review**. Ни одна задача не закрыт�
 <table align="center">
   <thead><tr><th align="center" valign="middle">Задача</th><th align="center" valign="middle">Изменение</th><th align="center" valign="middle">Приоритет</th></tr></thead>
   <tbody>
-    <tr><td align="center" valign="middle"><a href="https://linear.app/grim-stack/issue/MAIN-12">F0 / MAIN-12</a></td><td align="center" valign="middle">Зафиксированы кейс, GuardTusk, стек, Forte и порядок приёмки</td><td align="center" valign="middle">Urgent</td></tr>
+    <tr><td align="center" valign="middle"><a href="https://linear.app/grim-stack/issue/MAIN-12">F0 / MAIN-12</a></td><td align="center" valign="middle">Зафиксированы кейс, Observer, стек, Forte и порядок приёмки</td><td align="center" valign="middle">Urgent</td></tr>
     <tr><td align="center" valign="middle"><a href="https://linear.app/grim-stack/issue/MAIN-5">F1 / MAIN-5</a></td><td align="center" valign="middle">Реальный MOV, ошибки, честный прогресс/таймер, повтор без новой загрузки</td><td align="center" valign="middle">Urgent</td></tr>
     <tr><td align="center" valign="middle"><a href="https://linear.app/grim-stack/issue/MAIN-6">F2 / MAIN-6</a></td><td align="center" valign="middle">Полный результат, доказательства, источники, проверка некорректных данных</td><td align="center" valign="middle">High → Urgent</td></tr>
     <tr><td align="center" valign="middle"><a href="https://linear.app/grim-stack/issue/MAIN-11">F5 / MAIN-11</a></td><td align="center" valign="middle">Forte + shadcn/ui, все состояния, клавиатура, 375/1440 px; без зависимости от F4</td><td align="center" valign="middle">Medium → High</td></tr>
@@ -138,7 +138,7 @@ F1 остаётся **In Review**. Ни одна задача не закрыт�
 </table>
 
 В B1/MAIN-1 добавлены критерии согласованности API и доказательств, в B3/MAIN-3 — MOV и доступ к preview.
-Их исходный backend scope и исполнители сохранены. Проект переименован в GuardTusk — Datathon 2026.
+Их исходный backend scope и исполнители сохранены. Проект переименован в GuardTusk — Datathon 2026, затем в Observer (решение капитана, 17.10.2026).
 F0–F6 назначены SNOWNUMB. F0 — In Progress как родитель всех этапов, F1 — In Review;
 F2 реализован и проходит локальную проверку. Текущий статус и галочки — в Linear;
 проверки реального ML остаются открытыми до F6.
@@ -149,7 +149,7 @@ F2 реализован и проходит локальную проверку.
 
 </div>
 
-Компактная шапка GuardTusk, заголовок «Проверка видео», одна колонка до 800 px.
+Компактная шапка Observer, заголовок «Проверка видео», одна колонка до 800 px.
 Загрузка/ключ/прогресс сменяются вердиктом, карточками доказательств и кнопкой «Новое видео».
 Если F3 включён, плеер располагается перед карточками. F4 появляется только после базовой приёмки.
 
