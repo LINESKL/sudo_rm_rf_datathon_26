@@ -595,30 +595,6 @@
     border: 0;
   }
   @media (max-width: 600px) {
-    .how-steps {
-      grid-template-columns: minmax(0, 1fr);
-    }
-    .event-body {
-      grid-template-columns: minmax(0, 1fr);
-      gap: 16px;
-    }
-    .evidence-image {
-      height: 200px;
-    }
-    .timeline-row {
-      grid-template-columns: minmax(0, 1fr);
-      gap: 4px;
-      padding-top: 4px;
-    }
-    .timeline-actions {
-      grid-column: 1;
-    }
-    .timeline-scale {
-      margin-left: 0;
-    }
-    .event-nav .small-note {
-      display: none;
-    }
     .result-banner {
       gap: 12px;
       padding: 18px;
@@ -1288,5 +1264,46 @@
     border: 0;
     padding: 0;
     resize: none;
+  }
+  .review-comment:placeholder-shown,
+  .page-intro p {
+    display: none;
+  }
+  .event-card.event-current {
+    border-color: var(--border);
+    box-shadow: none;
+    background: var(--card);
+  }
+  .review-decision .print-only {
+    display: inline;
+    margin: 0;
+  }
+}
+
+/* Мобильные переопределения после основных правил, иначе порядок в файле их перебивает. */
+@media (max-width: 600px) {
+  .how-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .event-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .evidence-image {
+    height: 200px;
+  }
+  .timeline-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    padding-top: 4px;
+  }
+  .timeline-actions {
+    grid-column: 1;
+  }
+  .timeline-scale {
+    margin-left: 0;
+  }
+  .event-nav .small-note {
+    display: none;
   }
 }

@@ -31,6 +31,7 @@ export function ReviewDecision({
   return (
     <div className="review-decision" role="group" aria-label="Решение проверяющего">
       <span className="review-caption">Ваше решение</span>
+      {!decision && <span className="print-only">не принято</span>}
       <div className="review-options">
         {OPTIONS.map(({ verdict, label, pressed }) => (
           <Button
