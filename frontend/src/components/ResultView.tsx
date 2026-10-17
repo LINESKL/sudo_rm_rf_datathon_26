@@ -23,7 +23,8 @@ import {
 import type { DoneDetails, EvidenceFrame } from '@/api/contracts'
 
 function timecode(seconds: number) {
-  const minutes = Math.floor(seconds / 60)
+  const roundedSeconds = Math.round(seconds * 10) / 10
+  const minutes = Math.floor(roundedSeconds / 60)
     .toString()
     .padStart(2, '0')
   const rest = new Intl.NumberFormat('ru-RU', {
@@ -31,7 +32,7 @@ function timecode(seconds: number) {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
     useGrouping: false,
-  }).format(seconds % 60)
+  }).format(roundedSeconds % 60)
   return `${minutes}:${rest}`
 }
 
@@ -163,7 +164,9 @@ export function ResultView({
         <h3>
           {hasFindings
             ? `Обнаружены признаки возможных нарушений: ${result.violations.length}`
-            : 'Нарушение не обнаружено'}
+            : needsReview
+              ? 'Результат требует проверки'
+              : 'Нарушение не обнаружено'}
         </h3>
       </div>
       <div className="result-facts">

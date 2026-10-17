@@ -261,12 +261,70 @@ describe('ResultView', () => {
 })
 
 describe('ResultView review fixes', () => {
-  it('shows an unconfirmed clean result as neutral review, not as a violation', () => {
-    const { container } = render(
-      <ResultView result={result([])} onReset={vi.fn()} serviceMode="unknown" />,
+  it.each([
+    { mode: 'unknown', degraded: false },
+    { mode: 'stub', degraded: false },
+    { mode: 'pipeline', degraded: true },
+    { mode: 'pipeline', degraded: undefined },
+  ] as const)(
+    'keeps an unconfirmed clean result neutral: $mode/$degraded',
+    ({ mode, degraded }) => {
+      const { container } = render(
+        <ResultView result={result([], { degraded })} onReset={vi.fn()} serviceMode={mode} />,
+      )
+      const banner = container.querySelector('.result-banner')
+      expect(banner).toHaveClass('needs-review')
+      expect(banner).not.toHaveClass('has-findings', 'clean')
+      expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(
+        'Результат требует проверки',
+      )
+      expect(screen.queryByText('Нарушение не обнаружено')).not.toBeInTheDocument()
+    },
+  )
+
+  it('preserves findings and evidence when the analysis is partial', () => {
+    render(
+      <ResultView
+        result={result([event()], { degraded: true })}
+        onReset={vi.fn()}
+        serviceMode="pipeline"
+      />,
     )
-    const banner = container.querySelector('.result-banner')
-    expect(banner).toHaveClass('needs-review')
-    expect(banner).not.toHaveClass('has-findings')
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(
+      'Обнаружены признаки возможных нарушений: 1',
+    )
+    expect(screen.getByText('Анализ выполнен не полностью')).toBeVisible()
+    expect(screen.getByRole('article', { name: 'Событие 1: Событие 1' })).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Увеличить кадр 1 события 1, 8.625 с' }),
+    ).toBeVisible()
   })
+
+  it.each([
+    { seconds: 59.999, formatted: '01:00,0' },
+    { seconds: 3599.999, formatted: '60:00,0' },
+  ])(
+    'carries a rounded timecode across the minute boundary at $seconds',
+    ({ seconds, formatted }) => {
+      const violation = event(0, {
+        timecode_sec: seconds,
+        evidence_frames: [
+          { ...sampleDetails.violations[0].evidence_frames[0], timestamp_sec: seconds },
+        ],
+      })
+      render(
+        <ResultView
+          result={result([violation], { duration_sec: 3601 })}
+          onReset={vi.fn()}
+          serviceMode="pipeline"
+        />,
+      )
+      const timestamps = screen.getAllByTitle(`${seconds} с от начала видео`)
+      expect(timestamps).toHaveLength(2)
+      for (const timestamp of timestamps) expect(timestamp).toHaveTextContent(formatted)
+      expect(
+        screen.getByRole('button', { name: `Увеличить кадр 1 события 1, ${seconds} с` }),
+      ).toBeVisible()
+    },
+  )
 })
