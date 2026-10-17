@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -12,9 +13,10 @@ from PIL import Image
 
 def probe(path: Path | str) -> tuple[float, float]:
     out = subprocess.run(
-        ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+        [os.getenv("FFPROBE_BIN", "ffprobe"), "-v", "error", "-protocol_whitelist", "file,pipe",
+         "-select_streams", "v:0", "-show_entries",
          "stream=r_frame_rate:format=duration", "-of", "json", str(path)],
-        check=True, capture_output=True, text=True).stdout
+        check=True, capture_output=True, text=True, timeout=15).stdout
     info = json.loads(out)
     num, den = info["streams"][0]["r_frame_rate"].split("/")
     return float(info["format"]["duration"]), float(num) / float(den)
@@ -22,9 +24,10 @@ def probe(path: Path | str) -> tuple[float, float]:
 
 def _grab(path: Path | str, t: float, width: int) -> Image.Image:
     raw = subprocess.run(
-        ["ffmpeg", "-v", "error", "-ss", f"{t:.3f}", "-i", str(path), "-frames:v", "1",
+        [os.getenv("FFMPEG_BIN", "ffmpeg"), "-nostdin", "-v", "error", "-threads", "2",
+         "-protocol_whitelist", "file,pipe", "-ss", f"{t:.3f}", "-i", str(path), "-frames:v", "1",
          "-vf", f"scale={width}:-2", "-f", "image2pipe", "-vcodec", "png", "-"],
-        check=True, capture_output=True).stdout
+        check=True, capture_output=True, timeout=30).stdout
     return Image.open(io.BytesIO(raw)).convert("RGB")
 
 
@@ -41,8 +44,9 @@ def sample_frames(path: Path | str, times: list[float], width: int = 464) -> lis
 def low_res_stream(path: Path | str, fps: float = 4.0, size: tuple[int, int] = (58, 106)) -> tuple[list[float], np.ndarray]:
     w, h = size
     raw = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(path), "-vf", f"fps={fps},scale={w}:{h},format=gray",
-         "-f", "rawvideo", "-"], check=True, capture_output=True).stdout
+        [os.getenv("FFMPEG_BIN", "ffmpeg"), "-nostdin", "-v", "error", "-threads", "2",
+         "-protocol_whitelist", "file,pipe", "-i", str(path), "-vf", f"fps={fps},scale={w}:{h},format=gray",
+         "-f", "rawvideo", "-"], check=True, capture_output=True, timeout=60).stdout
     arr = np.frombuffer(raw, dtype=np.uint8).reshape(-1, h, w)
     return [i / fps for i in range(len(arr))], arr
 

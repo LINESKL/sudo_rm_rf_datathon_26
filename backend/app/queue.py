@@ -89,7 +89,8 @@ class JobQueue:
         result_path = self.settings.data_dir / "results" / f"{job_id}.json"
         preview_path = self.settings.data_dir / "previews" / f"{job_id}.mp4"
         result_path.unlink(missing_ok=True)
-        env = dict(os.environ, FFMPEG_BIN=self.settings.ffmpeg, PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8",
+        env = dict(os.environ, FFMPEG_BIN=self.settings.ffmpeg, FFPROBE_BIN=self.settings.ffprobe,
+                   PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8",
                    VLM_BASE_URL=self.settings.vlm_base_url, VLM_MODEL=self.settings.vlm_model)
         # Imports must work regardless of the directory uvicorn was started from.
         env["PYTHONPATH"] = str(ROOT) + os.pathsep + env.get("PYTHONPATH", "")

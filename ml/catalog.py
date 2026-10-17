@@ -18,7 +18,8 @@ def norm_for(entry: dict) -> dict | None:
     norm = entry.get("norm")
     if not norm or not norm.get("verified"):
         return None
-    return {k: norm[k] for k in ("document", "point", "quote", "url")}
+    return {"document": norm["document"], "url": norm["url"],
+            "point": norm.get("point"), "quote": norm.get("quote")}
 
 
 def fmt_t(t: float) -> str:

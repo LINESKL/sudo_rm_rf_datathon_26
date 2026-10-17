@@ -29,10 +29,13 @@ def main() -> None:
             res = analyze(lab["path"])
             details = res.to_details(lab["name"], "")
             verdict, times = res.verdict, [v.timecode_sec for v in res.violations]
+            if res.degraded:
+                details["error"] = "Incomplete ML analysis (degraded)"
+                verdict, times = "error", []
         except Exception as e:  # прогон не должен падать из-за одного видео
             details, verdict, times = {"error": repr(e)}, "error", []
         sec = time.monotonic() - t0
-        (out / f"{lab['name']}.json").write_text(json.dumps(details, ensure_ascii=False, indent=1))
+        (out / f"{lab['name']}.json").write_text(json.dumps(details, ensure_ascii=False, indent=1), encoding="utf-8")
         rows.append(lab | {"pred_verdict": verdict, "pred_times": times, "sec": sec,
                            "pred_types": [v["type_id"] for v in details.get("violations", [])]})
         print(f"{lab['name']}: label={lab['violation']} {lab['times']} -> {verdict} {times} ({sec:.0f}s)", flush=True)
@@ -44,7 +47,7 @@ def main() -> None:
         lines.append(f"| {r['name']} | {'V' if r['violation'] else '-'} | {r['times']} | {r['pred_verdict']} "
                      f"| {[round(t, 1) for t in r['pred_times']]} | {', '.join(r['pred_types'])} | {r['sec']:.0f} |")
     (out / "report.md").write_text("\n".join(lines), encoding="utf-8")
-    (out / "rows.json").write_text(json.dumps(rows, ensure_ascii=False, indent=1))
+    (out / "rows.json").write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps(s, indent=1))
 
 

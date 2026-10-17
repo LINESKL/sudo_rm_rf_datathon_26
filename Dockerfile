@@ -8,7 +8,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-RUN if [ -f requirements-ml.txt ]; then pip install --no-cache-dir -r requirements-ml.txt -c requirements.txt; fi
 RUN sed -i 's/\r$//' deploy/*.sh && chmod +x deploy/*.sh
 ENV PYTHONUNBUFFERED=1 DATA_DIR=/workspace/data FRONTEND_DIR=/app/frontend/dist \
     ANALYZER=ml.stub:analyze VLLM_ENABLED=0 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
@@ -29,7 +28,7 @@ COPY requirements.txt .
 RUN python3 -m venv --system-site-packages /opt/backend \
     && /opt/backend/bin/pip install --no-cache-dir -r requirements.txt
 COPY . .
-RUN if [ -f requirements-ml.txt ]; then /opt/backend/bin/pip install --no-cache-dir -r requirements-ml.txt -c requirements.txt; fi
+RUN /opt/backend/bin/pip install --no-cache-dir -r requirements-ml.txt -c requirements.txt
 RUN sed -i 's/\r$//' deploy/*.sh && chmod +x deploy/*.sh
 ENV PYTHONUNBUFFERED=1 BACKEND_PYTHON=/opt/backend/bin/python \
     DATA_DIR=/workspace/data FRONTEND_DIR=/app/frontend/dist \

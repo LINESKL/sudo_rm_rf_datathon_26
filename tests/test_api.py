@@ -190,7 +190,7 @@ def test_external_ml_serializers_budget_and_environment(settings, video, job_tim
         job_id = submit(client, video)
         details, _ = wait_done(client, job_id)
         assert details["status"] == "done", details
-        assert details["degraded"] is True
+        assert details["degraded"] is False
         assert details["processing_sec"] == .125
         assert details["timeline"] == {"bag_on_desk": [[0, 1]]}
         assert details["preview_url"] == f"/previews/{job_id}.mp4"

@@ -33,9 +33,10 @@ def verify(cands, scene, client, video_path, time_left, workers: int = 4):
         if ans == "unclear":
             votes = [ans, _ask(client, frames, q), _ask(client, frames, q)]
             ans = "yes" if votes.count("yes") >= 2 else "no" if votes.count("no") >= 2 else "unclear"
-        if ans == "no":
+        violation_answer = cat[c.type_id].get("violation_answer", "yes")
+        if ans in ("yes", "no") and ans != violation_answer:
             return None
-        if ans == "yes":
+        if ans == violation_answer:
             return replace(c, confidence=min(0.95, c.confidence + 0.15))
         return c
 

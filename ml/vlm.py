@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 
 import requests
+from jsonschema import Draft202012Validator, ValidationError
 
 from ml.video import to_jpeg_b64
 
@@ -14,6 +16,8 @@ class VLMClient:
         self.base_url = (base_url or os.getenv("VLM_BASE_URL", "http://localhost:8001/v1")).rstrip("/")
         self.model = model or os.getenv("VLM_MODEL", "Qwen/Qwen3-VL-8B-Instruct")
         self.timeout = timeout
+        self.failures = 0
+        self._lock = Lock()
 
     def ask_json(self, images, prompt: str, schema: dict, max_tokens: int = 400) -> dict | None:
         content = [{"type": "image_url",
@@ -26,10 +30,20 @@ class VLMClient:
             "chat_template_kwargs": {"enable_thinking": False},
         }
         try:
-            r = requests.post(f"{self.base_url}/chat/completions", json=body, timeout=self.timeout)
-            r.raise_for_status()
-            return json.loads(r.json()["choices"][0]["message"]["content"])
-        except (requests.RequestException, ValueError, KeyError, IndexError):
+            # Each parallel call owns its session. Do not send video frames via
+            # environment proxies or follow redirects away from the chosen VLM.
+            with requests.Session() as session:
+                session.trust_env = False
+                r = session.post(f"{self.base_url}/chat/completions", json=body,
+                                 timeout=self.timeout, allow_redirects=False)
+                if r.status_code != 200:
+                    raise requests.RequestException(f"VLM returned HTTP {r.status_code}")
+                answer = json.loads(r.json()["choices"][0]["message"]["content"])
+            Draft202012Validator(schema).validate(answer)
+            return answer
+        except (requests.RequestException, ValueError, KeyError, IndexError, TypeError, ValidationError):
+            with self._lock:
+                self.failures += 1
             return None
 
 

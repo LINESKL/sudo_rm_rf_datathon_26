@@ -33,3 +33,24 @@ def test_score():
     s = score(rows)
     assert s["accuracy"] == 0.5 and s["recall"] == 0.5 and s["fp_clean"] == 0.5
     assert s["timecode_hit"] == 0.5 and s["max_sec"] == 50
+
+
+def test_error_is_not_a_correct_clean_prediction():
+    rows = [{"violation": False, "times": [], "pred_verdict": "error", "pred_times": [], "sec": 1}]
+    assert score(rows)["accuracy"] == 0 and score(rows)["errors"] == 1
+
+
+def test_degraded_eval_is_error(tmp_path, monkeypatch):
+    import json
+    import sys
+    from eval import run_eval
+    from ml.types import AnalysisResult
+
+    monkeypatch.setattr(sys, "argv", ["eval", "--videos", "unused", "--labels", "unused", "--out", str(tmp_path)])
+    monkeypatch.setattr(run_eval, "load_labels", lambda *a: [
+        {"name": "Х-1", "path": "unused", "violation": False, "times": []}])
+    monkeypatch.setattr(run_eval, "analyze", lambda *a: AnalysisResult(8, [], {}, 8, degraded=True))
+    run_eval.main()
+    rows = json.loads((tmp_path / "rows.json").read_text(encoding="utf-8"))
+    assert rows[0]["pred_verdict"] == "error"
+    assert score(rows)["accuracy"] == 0

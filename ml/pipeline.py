@@ -51,6 +51,7 @@ def analyze(video_path, deadline_s: float = 240.0, on_progress=None, client=None
     started = time.monotonic()
     progress = on_progress or (lambda stage, value: None)
     client = client or VLMClient()
+    failures_before = getattr(client, "failures", 0)
 
     def left() -> float:
         return deadline_s - (time.monotonic() - started)
@@ -64,7 +65,7 @@ def analyze(video_path, deadline_s: float = 240.0, on_progress=None, client=None
     progress("detect", 0.2)
     progress("scene", 0.3)
     samples = sense(client, frames, workers=workers)
-    degraded = len(samples) < max(1, len(frames) // 2)
+    degraded = not samples or len(samples) != len(frames)
     scene = Scene(samples, duration)
     cands = run_rules(scene)
 
@@ -73,9 +74,13 @@ def analyze(video_path, deadline_s: float = 240.0, on_progress=None, client=None
         if left() < 40:
             degraded = True
             break
+        if hook is open_pass and left() < 90:
+            degraded = True
+            continue
         cands = hook(cands, scene, client, video_path, left())
 
     violations = [to_violation(c, video_path, duration) for c in sorted(cands, key=lambda c: c.t)]
+    degraded |= getattr(client, "failures", 0) > failures_before or left() <= 0
     progress("done", 1.0)
     return AnalysisResult(duration_sec=duration, violations=violations, timeline=scene.timeline_json(),
                           rules_checked=len(RULES), processing_sec=time.monotonic() - started,

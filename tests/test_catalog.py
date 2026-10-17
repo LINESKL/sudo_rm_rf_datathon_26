@@ -18,3 +18,8 @@ def test_unverified_norm_is_hidden():
 def test_fmt_t():
     assert fmt_t(8.6) == "8,6"
     assert fmt_t(68.04) == "68,0"
+
+
+def test_norm_without_optional_point_or_quote():
+    assert norm_for({"norm": {"verified": True, "document": "d", "url": "u"}}) == {
+        "document": "d", "url": "u", "point": None, "quote": None}

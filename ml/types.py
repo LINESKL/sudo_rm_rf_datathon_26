@@ -45,7 +45,8 @@ class Violation:
 
     def description(self) -> str:
         if self.rule:
-            norm = f"Норматив: {self.rule['document']}, {self.rule['point']}."
+            point = f", {self.rule['point']}" if self.rule.get("point") else ""
+            norm = f"Норматив: {self.rule['document']}{point}. {self.rule['url']}"
         else:
             norm = "Норматив не определён, требуется проверка."
         return f"{self.observed} {self.why} {norm}"

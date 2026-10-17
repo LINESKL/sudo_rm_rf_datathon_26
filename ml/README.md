@@ -7,11 +7,26 @@ jury = result.to_jury(job_id)                 # ответ GET /api/v1/jobs/{id}
 details = result.to_details(job_id, preview)  # ответ GET /api/v1/jobs/{id}/details
 ```
 
-Окружение: `VLM_BASE_URL` (по умолчанию `http://localhost:8001/v1`), `VLM_MODEL` (по умолчанию `Qwen/Qwen3-VL-8B-Instruct`).
+Зависимости: `python -m pip install -r requirements-ml.txt -c requirements.txt`.
+Для разработки и eval: `python -m pip install -r requirements-dev.txt`.
+API с заглушкой требует только `requirements.txt`.
 
-vLLM: `vllm serve <model> --port 8001 --max-model-len 8192 --limit-mm-per-prompt '{"image": 6}'`.
+Окружение: `VLM_BASE_URL` (по умолчанию `http://localhost:8001/v1`), `VLM_MODEL` (по умолчанию `Qwen/Qwen3-VL-8B-Instruct`),
+`FFMPEG_BIN` / `FFPROBE_BIN` (по умолчанию команды из PATH).
+В бэкенде реальный конвейер выбирается через `ANALYZER=ml:analyze`.
+
+vLLM: `vllm serve <local-model-path> --served-model-name <VLM_MODEL> --host 127.0.0.1 --port 8001 --max-model-len 8192 --limit-mm-per-prompt '{"image": 6}'`.
+Веса должны быть заранее подготовлены. Порт 8001 наружу не публиковать.
 
 `analyze` синхронная и тяжёлая — вызывать в потоке/процессе. Исключения ловить снаружи → `failed`.
-Если VLM недоступна, `analyze` не падает: вернёт `no_violation` с `degraded=True` в `/details`.
+Если часть запросов VLM не выполнена, JSON не соответствует схеме, пропущен этап
+или исчерпан бюджет, библиотека помечает результат `degraded=True`.
+Такой результат нельзя интерпретировать как полный анализ. Бэкенд переводит
+задачу в `failed`, даже если библиотечный `verdict` равен `no_violation`.
+Общий жёсткий таймаут и уничтожение дерева процессов обеспечивает бэкенд.
+Сам `deadline_s` пока не прерывает выполняющийся запрос VLM: это бюджет этапов.
 
-Тесты: `uv pip install --python .venv/bin/python -r requirements-ml.txt && .venv/bin/python -m pytest -q`.
+Тесты: `python -m pytest -q` после установки `requirements-dev.txt` и FFmpeg.
+`tests/test_ml_integration.py` проверяет реальный конвейер через API с локальным
+тестовым VLM-сервером; это не замер качества Qwen. Состояние приёмки:
+[`docs/ml-integration.md`](../docs/ml-integration.md).

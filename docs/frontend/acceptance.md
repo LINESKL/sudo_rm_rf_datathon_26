@@ -93,13 +93,14 @@ npm --prefix frontend run format:check
 Ветка продолжения — `AIrevision/F2-result-evidence`; fixtures backend и ML сохранены вместе.
 
 - [x] Python 3.12.14, изолированные зависимости, `pip check` без ошибок.
-- [x] 89 Python-тестов проходят: контракт, загрузка, очередь, ошибки, media-cookie, перезапуск,
+- [x] Первичный прогон: 89 Python-тестов проходят — контракт, загрузка, очередь, ошибки, media-cookie, перезапуск,
   нагрузка заглушки и ML с подменённой VLM. Одно предупреждение Starlette TestClient/httpx о deprecation.
 - [x] Исправлен запуск тестового uvicorn в отдельной POSIX-сессии: очистка теперь завершает свой процесс.
 - [x] Настоящий декодируемый синтетический MOV: 29 492 065 байт, 3,2 с; HTTP + stub за 6,097 с.
   Согласованы `/jobs` и `/details`, JPEG, H.264/yuv420p/faststart, HEAD/Range и `401` без cookie.
-- [x] `ANALYZER=ml:analyze` с намеренно недоступной локальной VLM: HTTP за 26,226 с,
-  `degraded=true`. Это проверка отказа, а не качества модели.
+- [x] До последнего обновления `ANALYZER=ml:analyze` с намеренно недоступной локальной VLM:
+  HTTP за 26,226 с, `degraded=true`. Это историческая проверка отказа; актуальный runner
+  из `ef84795` переводит неполный результат в `failed`, а не в `done`.
 - [x] Production React, раздаваемый FastAPI: выбор синтетического MOV → POST → polling →
   карточка с извлечённым настоящим JPEG и явной надписью «Тестовый результат»; console без ошибок.
 
@@ -116,6 +117,32 @@ FFMPEG_BIN="$PWD/.tools/bin/ffmpeg" FFPROBE_BIN="$PWD/.tools/bin/ffprobe" \
 Отчёты локально: `.tools/synthetic-http.json`, `.tools/synthetic-pipeline-no-vlm.json`;
 скриншоты: `output/playwright/f2-desktop.png`, `f2-mobile.png`, `f2-dialog.png`, `f2-real-http.png`.
 Ключ, сгенерированное видео, БД, кадры и бинарники в Git не добавлены.
+
+<div align="center">
+
+## Повторная проверка обновления ef84795
+
+</div>
+
+Перед отправкой получено новое обновление `dunan/backend-video-processing`.
+Backend, ML, eval, зависимости и тесты перенесены полностью; единственное отличие
+от серверной ветки — исправление отдельной POSIX-сессии в `tests/test_server.py`.
+
+- [x] Актуальный общий прогон: **106 passed**, 118,66 с; `pip check` без ошибок.
+  Предупреждение Starlette TestClient/httpx осталось прежним.
+- [x] Реальный путь API → очередь → ML → локальный тестовый VLM → SQLite → preview:
+  чистый результат и событие с телефоном согласованы в двух API-проекциях.
+- [x] Отказ VLM, неверная JSON Schema, частичный сбой процедур и проверки кандидата
+  дают `failed`. После восстановления VLM следующий job того же worker завершается успешно.
+- [x] Новые decoder/env-настройки, норматив без пункта, полярность проверки процедур
+  и исключение ошибочного чистого ответа из eval покрыты тестами.
+- [x] Frontend-контракт совместим: полный clean остаётся `done/no_violation/degraded:false`,
+  неполный анализ обрабатывается существующим состоянием ошибки. Поддержка старого `done/degraded` сохранена.
+- [x] `bash -n deploy/offline-check.sh deploy/start.sh` проходит.
+
+Ответы VLM в тестах контролируемые; настоящая нейросеть и GPU здесь не запускались.
+Новые Docker-результаты коллеги сохранены в `docs/backend-acceptance.md` и `docs/ml-integration.md`;
+контейнерные прогоны в этой локальной проверке не повторялись.
 
 <div align="center">
 

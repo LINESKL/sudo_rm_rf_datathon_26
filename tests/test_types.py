@@ -34,3 +34,8 @@ def test_no_violation_and_details_shape():
 def test_confidence_level():
     v = _v(); v.confidence = 0.4
     assert v.confidence_level == "low"
+
+
+def test_description_links_norm_without_optional_point():
+    description = _v({"document": "Документ", "url": "https://example.org/norm"}).description()
+    assert "https://example.org/norm" in description and "None" not in description

@@ -73,6 +73,7 @@ banknote_check_skipped:
   observed: "В {t} с кассир принимает и пересчитывает наличные без проверки на оборудовании для определения подлинности."
   why: "Пересчёт наличных выполняется на оборудовании с проверкой машиночитаемых защитных признаков."
   verify_question: "During this cash handling, does the cashier put the banknotes through a counting/checking machine or a banknote detector?"
+  violation_answer: "no"
   confidence: 0.5
   norm: {document: *npa231, point: "п. 41, п. 9", quote: "…на оборудовании, имеющем функцию проверки не менее двух машиночитаемых защитных признаков", url: "https://adilet.zan.kz/rus/docs/V1900019680", verified: true}
 
@@ -81,6 +82,7 @@ id_check_skipped:
   observed: "В {t} с кассир принимает наличные от клиента без проверки документа, удостоверяющего личность."
   why: "Перед проведением операции личность клиента идентифицируется по документу."
   verify_question: "Before accepting cash, does the cashier take and look at the client's ID card or document?"
+  violation_answer: "no"
   confidence: 0.5
   norm: null
 
