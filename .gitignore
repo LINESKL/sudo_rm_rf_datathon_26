@@ -38,3 +38,10 @@ frontend/dist/
 *.egg-info/
 .superpowers/
 runs/
+
+# Runtime and local verification
+backend/data/
+.pytest_cache/
+.tools/
+test-results/
+*.egg-info/

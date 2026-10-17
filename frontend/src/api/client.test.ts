@@ -2,7 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import doneDetails from '../../../docs/frontend/mock_details.json'
 import cleanDetails from '../../../docs/frontend/mock_details_clean.json'
 import processingDetails from '../../../docs/frontend/mock_details_processing.json'
-import { ApiError, getJobDetails, MAX_VIDEO_BYTES, uploadVideo, validateVideo } from './client'
+import {
+  ApiError,
+  getJobDetails,
+  getServiceHealth,
+  MAX_VIDEO_BYTES,
+  uploadVideo,
+  validateVideo,
+} from './client'
 
 class FakeXMLHttpRequest {
   static instances: FakeXMLHttpRequest[] = []
@@ -186,8 +193,179 @@ describe('getJobDetails', () => {
     await getJobDetails('job/with space', 'bank-key', new AbortController().signal)
     expect(fetch).toHaveBeenCalledWith('/api/v1/jobs/job%2Fwith%20space/details', {
       headers: { 'X-API-Key': 'bank-key' },
+      cache: 'no-store',
       signal: expect.any(AbortSignal),
     })
+  })
+
+  it.each([
+    [
+      'without point and quote',
+      { document: 'Открытый норматив', url: 'https://adilet.zan.kz/rus/docs/source' },
+    ],
+    [
+      'with null point and quote',
+      {
+        document: 'Открытый норматив',
+        url: 'https://adilet.zan.kz/rus/docs/source',
+        point: null,
+        quote: null,
+      },
+    ],
+    ['without a rule', undefined],
+    ['with a null rule', null],
+  ])(
+    'accepts backend-shaped details %s without optional statistics or preview',
+    async (_name, rule) => {
+      const payload = JSON.parse(
+        JSON.stringify({
+          job_id: 'job-1',
+          status: 'done',
+          verdict: 'violation',
+          duration_sec: 20.9,
+          processing_sec: 74.2,
+          degraded: true,
+          violations: [{ ...doneDetails.violations[0], rule }],
+        }),
+      )
+      vi.mocked(fetch).mockResolvedValue(response(payload))
+      await expect(getJobDetails('job-1', 'key', new AbortController().signal)).resolves.toEqual(
+        payload,
+      )
+    },
+  )
+
+  it('preserves degraded=false and does not invent it when it is omitted', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(response({ ...cleanDetails, degraded: false }))
+      .mockResolvedValueOnce(response(cleanDetails))
+    const first = await getJobDetails(cleanDetails.job_id, 'key', new AbortController().signal)
+    const second = await getJobDetails(cleanDetails.job_id, 'key', new AbortController().signal)
+    expect(first).toMatchObject({ degraded: false })
+    expect(second).not.toHaveProperty('degraded')
+  })
+
+  it.each([
+    ['clean verdict with events', { ...doneDetails, verdict: 'no_violation' }],
+    ['violation verdict without events', { ...cleanDetails, verdict: 'violation' }],
+    ['missing processing duration', { ...cleanDetails, processing_sec: undefined }],
+    ['invalid degraded flag', { ...cleanDetails, degraded: 'false' }],
+    ['null rule counter', { ...cleanDetails, rules_checked: null }],
+    [
+      'event outside video',
+      { ...doneDetails, violations: [{ ...doneDetails.violations[0], timecode_end_sec: 21 }] },
+    ],
+    [
+      'frame outside video',
+      {
+        ...doneDetails,
+        violations: [
+          {
+            ...doneDetails.violations[0],
+            evidence_frames: [
+              { ...doneDetails.violations[0].evidence_frames[0], timestamp_sec: 21 },
+            ],
+          },
+        ],
+      },
+    ],
+    ['timeline outside video', { ...cleanDetails, timeline: { cashier_present: [[0, 21]] } }],
+  ])('rejects inconsistent %s instead of presenting a clean result', async (_name, payload) => {
+    vi.mocked(fetch).mockResolvedValue(response(payload))
+    await expect(
+      getJobDetails(payload.job_id, 'key', new AbortController().signal),
+    ).rejects.toMatchObject({ kind: 'contract' })
+  })
+
+  it.each(['observed', 'why', 'description'] as const)(
+    'rejects a blank %s explanation',
+    async (field) => {
+      vi.mocked(fetch).mockResolvedValue(
+        response({ ...doneDetails, violations: [{ ...doneDetails.violations[0], [field]: '  ' }] }),
+      )
+      await expect(
+        getJobDetails(doneDetails.job_id, 'key', new AbortController().signal),
+      ).rejects.toMatchObject({ kind: 'contract' })
+    },
+  )
+
+  it.each([
+    ['javascript source', { document: 'Норматив', url: 'javascript:alert(1)' }],
+    ['relative source', { document: 'Норматив', url: '/source' }],
+    [
+      'credentials in source',
+      { document: 'Норматив', url: 'https://user:secret@adilet.zan.kz/source' },
+    ],
+    ['blank document', { document: ' ', url: 'https://adilet.zan.kz/source' }],
+    ['blank point', { document: 'Норматив', url: 'https://adilet.zan.kz/source', point: ' ' }],
+    ['blank quote', { document: 'Норматив', url: 'https://adilet.zan.kz/source', quote: '' }],
+  ])('rejects a malformed rule: %s', async (_name, rule) => {
+    vi.mocked(fetch).mockResolvedValue(
+      response({ ...doneDetails, violations: [{ ...doneDetails.violations[0], rule }] }),
+    )
+    await expect(
+      getJobDetails(doneDetails.job_id, 'key', new AbortController().signal),
+    ).rejects.toMatchObject({ kind: 'contract' })
+  })
+
+  it.each([0, 4])('rejects %s evidence frames', async (count) => {
+    const evidence_frames = Array.from(
+      { length: count },
+      () => doneDetails.violations[0].evidence_frames[0],
+    )
+    vi.mocked(fetch).mockResolvedValue(
+      response({ ...doneDetails, violations: [{ ...doneDetails.violations[0], evidence_frames }] }),
+    )
+    await expect(
+      getJobDetails(doneDetails.job_id, 'key', new AbortController().signal),
+    ).rejects.toMatchObject({ kind: 'contract' })
+  })
+
+  it.each([
+    ['invalid base64', '!!!!'],
+    ['bad padding', '/9j/2Q==='],
+    ['non-JPEG bytes', 'SGVsbG8='],
+    ['missing end marker', '/9j/4AAQ'],
+    [
+      'data URL',
+      `data:image/jpeg;base64,${doneDetails.violations[0].evidence_frames[0].image_base64}`,
+    ],
+    ['oversized evidence', 'A'.repeat(14_000_001)],
+  ])('rejects %s evidence', async (_name, image_base64) => {
+    const evidence_frames = [{ timestamp_sec: 8.6, image_base64 }]
+    vi.mocked(fetch).mockResolvedValue(
+      response({ ...doneDetails, violations: [{ ...doneDetails.violations[0], evidence_frames }] }),
+    )
+    await expect(
+      getJobDetails(doneDetails.job_id, 'key', new AbortController().signal),
+    ).rejects.toMatchObject({ kind: 'contract' })
+  })
+
+  it.each([undefined, null, '/previews/job-1.mp4', `${window.location.origin}/previews/job-1.mp4`])(
+    'accepts safe optional preview %s',
+    async (preview_url) => {
+      vi.mocked(fetch).mockResolvedValue(response({ ...cleanDetails, preview_url }))
+      await expect(
+        getJobDetails(cleanDetails.job_id, 'key', new AbortController().signal),
+      ).resolves.toMatchObject({ status: 'done' })
+    },
+  )
+
+  it.each([
+    'https://other.example/previews/job-1.mp4',
+    '//other.example/previews/job-1.mp4',
+    '/previews/job-1.mp4?api_key=secret',
+    '/previews/job-1.mp4#secret',
+    '/api/v1/analyze',
+    '/previews/../api/v1/analyze',
+    '/previews/%2e%2e/api/v1/analyze',
+    'javascript:alert(1)',
+    `${window.location.origin.replace('://', '://user:secret@')}/previews/job-1.mp4`,
+  ])('rejects an unsafe preview URL: %s', async (preview_url) => {
+    vi.mocked(fetch).mockResolvedValue(response({ ...cleanDetails, preview_url }))
+    await expect(
+      getJobDetails(cleanDetails.job_id, 'key', new AbortController().signal),
+    ).rejects.toMatchObject({ kind: 'contract' })
   })
 
   it.each([
@@ -213,39 +391,11 @@ describe('getJobDetails', () => {
   })
 
   it.each([
-    { document: 'Источник без пункта', url: 'https://example.org/norm' },
-    { document: 'Источник без пункта', point: null, quote: null, url: 'https://example.org/norm' },
-    null,
-  ])('accepts optional normative fields from backend', async (rule) => {
-    const payload = {
-      ...doneDetails,
-      violations: [{ ...doneDetails.violations[0], rule }],
-      timeline: null,
-      timeline_labels: null,
-    }
-    vi.mocked(fetch).mockResolvedValue(response(payload))
-    await expect(
-      getJobDetails(payload.job_id, 'key', new AbortController().signal),
-    ).resolves.toEqual(payload)
-  })
-
-  it.each([
     { ...processingDetails, status: 'queued' },
     { ...processingDetails, progress: { stage: 'scene', value: 55 } },
     { ...processingDetails, progress: { stage: 'scene', value: Number.NaN } },
     { ...processingDetails, stages: [{ id: 'decode' }] },
     { ...cleanDetails, verdict: 'unknown' },
-    { ...cleanDetails, verdict: 'violation' },
-    { ...doneDetails, verdict: 'no_violation' },
-    { ...cleanDetails, degraded: true },
-    { ...doneDetails, degraded: true },
-    { ...doneDetails, violations: [{ ...doneDetails.violations[0], evidence_frames: [] }] },
-    {
-      ...doneDetails,
-      violations: [
-        { ...doneDetails.violations[0], rule: { document: 'Unsafe', url: 'javascript:alert(1)' } },
-      ],
-    },
     { ...cleanDetails, rules_checked: -1 },
     { ...cleanDetails, duration_sec: undefined },
     { ...doneDetails, violations: [{ type: 'Incomplete result' }] },
@@ -315,5 +465,81 @@ describe('getJobDetails', () => {
       name: 'AbortError',
     })
     expect(fetch).not.toHaveBeenCalled()
+  })
+})
+
+describe('getServiceHealth', () => {
+  it.each([
+    { mode: 'stub', status: 'ok' },
+    { mode: 'stub', status: 'degraded' },
+    { mode: 'pipeline', status: 'ok' },
+    { mode: 'pipeline', status: 'degraded' },
+  ])('returns the checked mode/status without API credentials: %j', async (health) => {
+    vi.mocked(fetch).mockResolvedValue(
+      response({ ...health, gpu: { available: false }, queued: 0 }),
+    )
+    await expect(getServiceHealth(new AbortController().signal)).resolves.toEqual(health)
+    expect(fetch).toHaveBeenCalledExactlyOnceWith('/health', {
+      cache: 'no-store',
+      signal: expect.any(AbortSignal),
+    })
+  })
+
+  it.each([
+    {},
+    { mode: 'live', status: 'ok' },
+    { mode: 'pipeline', status: 'unknown' },
+    { mode: 'stub' },
+  ])('rejects unknown health %j', async (health) => {
+    vi.mocked(fetch).mockResolvedValue(response(health))
+    await expect(getServiceHealth(new AbortController().signal)).rejects.toMatchObject({
+      kind: 'contract',
+    })
+  })
+
+  it('does not expose HTML or server internals on an HTTP failure', async () => {
+    const reply = response({ detail: '<html>server traceback</html>' }, 503)
+    vi.mocked(fetch).mockResolvedValue(reply)
+    await expect(getServiceHealth(new AbortController().signal)).rejects.toMatchObject({
+      status: 503,
+      kind: 'http',
+    })
+    expect(reply.json).not.toHaveBeenCalled()
+  })
+
+  it('times out an unavailable health endpoint and cleans up its timer', async () => {
+    vi.useFakeTimers()
+    abortableFetch()
+    const request = getServiceHealth(new AbortController().signal)
+    const assertion = expect(request).rejects.toMatchObject({ kind: 'timeout' })
+    await vi.advanceTimersByTimeAsync(15_000)
+    await assertion
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('cancels an in-flight health request', async () => {
+    abortableFetch()
+    const controller = new AbortController()
+    const request = getServiceHealth(controller.signal)
+    controller.abort()
+    await expect(request).rejects.toMatchObject({ name: 'AbortError' })
+    expect(vi.mocked(fetch).mock.calls[0][1]?.signal?.aborted).toBe(true)
+  })
+
+  it('does not accept a late response body after cancellation', async () => {
+    let resolveBody!: (value: unknown) => void
+    const reply = response(null)
+    vi.mocked(reply.json).mockReturnValue(
+      new Promise((resolve) => {
+        resolveBody = resolve
+      }),
+    )
+    vi.mocked(fetch).mockResolvedValue(reply)
+    const controller = new AbortController()
+    const request = getServiceHealth(controller.signal)
+    await Promise.resolve()
+    controller.abort()
+    resolveBody({ mode: 'pipeline', status: 'ok' })
+    await expect(request).rejects.toMatchObject({ name: 'AbortError' })
   })
 })

@@ -37,7 +37,7 @@ export interface Violation {
   observed: string
   why: string
   description: string
-  rule: Rule | null
+  rule?: Rule | null
   evidence_frames: EvidenceFrame[]
 }
 
@@ -53,15 +53,15 @@ export interface DoneDetails {
   status: 'done'
   verdict: 'violation' | 'no_violation'
   violations: Violation[]
-  rules_checked: number
+  rules_checked?: number
   processing_sec: number
   duration_sec: number
-  preview_url: string | null
-  degraded?: boolean | null
+  preview_url?: string | null
+  degraded?: boolean
   progress?: Progress
   stages?: Stage[]
-  timeline?: Record<string, [number, number][]> | null
-  timeline_labels?: Record<string, string> | null
+  timeline?: Record<string, [number, number][]>
+  timeline_labels?: Record<string, string>
 }
 
 export interface FailedDetails {
@@ -71,3 +71,8 @@ export interface FailedDetails {
 }
 
 export type JobDetails = ProcessingDetails | DoneDetails | FailedDetails
+
+export interface ServiceHealth {
+  mode: 'stub' | 'pipeline'
+  status: 'ok' | 'degraded'
+}

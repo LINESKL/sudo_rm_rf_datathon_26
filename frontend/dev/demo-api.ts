@@ -17,11 +17,13 @@ const stages = ['decode', 'detect', 'scene', 'verify']
 export function demoApi(): Plugin {
   const jobs = new Map<string, number>()
   const middleware = (req: IncomingMessage, res: ServerResponse, next: () => void) => {
-    if (!req.url?.startsWith('/api/')) return next()
+    if (req.url !== '/health' && !req.url?.startsWith('/api/')) return next()
     const reply = (status: number, body: unknown) => {
       res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
       res.end(JSON.stringify(body))
     }
+    if (req.method === 'GET' && req.url === '/health')
+      return reply(200, { mode: 'stub', status: 'ok' })
     if (req.headers['x-api-key'] !== 'demo-key') return reply(401, { detail: 'Неверный API-ключ.' })
     if (req.method === 'POST' && req.url === '/api/v1/analyze') {
       let bytes = 0
