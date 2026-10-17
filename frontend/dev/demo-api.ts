@@ -82,7 +82,7 @@ export function demoApi(): Plugin {
     reply(404, { detail: 'Адрес не найден.' })
   }
   return {
-    name: 'guardtusk-demo-api',
+    name: 'observer-demo-api',
     configureServer(server) {
       server.middlewares.use(middleware)
     },

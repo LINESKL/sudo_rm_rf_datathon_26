@@ -463,3 +463,12 @@ describe('Polish: queue and result note', () => {
     ).toHaveLength(1)
   })
 })
+
+describe('Observer branding', () => {
+  it('names the product Observer in the header with its subtitle', () => {
+    renderState({ busy: false, job: null })
+    expect(screen.getByRole('link', { name: 'Observer — главная' })).toHaveTextContent('Observer')
+    expect(screen.getByText('AI-проверка кассовой дисциплины по видео')).toBeVisible()
+    expect(document.body).not.toHaveTextContent(/GuardTusk|CashGuard/i)
+  })
+})

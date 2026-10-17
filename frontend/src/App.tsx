@@ -220,13 +220,13 @@ export function App() {
     <div className="app-shell">
       <header className="site-header">
         <div className="header-inner">
-          <a className="brand" href="/" aria-label="GuardTusk — главная">
+          <a className="brand" href="/" aria-label="Observer — главная">
             <span className="brand-mark">
               <ScanLine size={23} strokeWidth={1.8} />
             </span>
-            <span>GuardTusk</span>
+            <span>Observer</span>
           </a>
-          <div className="header-description">Видеопроверка кассовых операций</div>
+          <div className="header-description">AI-проверка кассовой дисциплины по видео</div>
           <span className="private-label">
             <LockKeyhole size={14} /> Закрытый контур
           </span>
