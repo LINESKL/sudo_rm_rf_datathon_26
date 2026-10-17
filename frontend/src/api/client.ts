@@ -250,6 +250,14 @@ function parseJobDetails(value: unknown): JobDetails {
   throw contractError()
 }
 
+// The web UI calls keyless /ui/v1 routes (case FAQ 27); passing a key switches to the jury API /api/v1.
+function route(apiKey: string, path: string) {
+  return {
+    url: `${apiKey ? '/api/v1' : '/ui/v1'}${path}`,
+    headers: apiKey ? { 'X-API-Key': apiKey } : undefined,
+  }
+}
+
 export function uploadVideo(
   file: File,
   apiKey: string,
@@ -322,8 +330,8 @@ export function uploadVideo(
     signal.addEventListener('abort', cancel, { once: true })
 
     try {
-      xhr.open('POST', '/api/v1/analyze')
-      xhr.setRequestHeader('X-API-Key', apiKey)
+      xhr.open('POST', route(apiKey, '/analyze').url)
+      if (apiKey) xhr.setRequestHeader('X-API-Key', apiKey)
       xhr.timeout = 0
       const body = new FormData()
       body.append('file', file)
@@ -383,9 +391,8 @@ export async function getJobDetails(
   apiKey: string,
   signal: AbortSignal,
 ): Promise<JobDetails> {
-  const payload = await getJson(`/api/v1/jobs/${encodeURIComponent(jobId)}/details`, signal, {
-    'X-API-Key': apiKey,
-  })
+  const { url, headers } = route(apiKey, `/jobs/${encodeURIComponent(jobId)}/details`)
+  const payload = await getJson(url, signal, headers)
   const details = parseJobDetails(payload)
   if (details.job_id !== jobId) throw contractError()
   return details

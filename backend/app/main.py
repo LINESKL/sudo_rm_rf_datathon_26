@@ -107,6 +107,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return JobDetails.model_validate({key: value for key, value in data.items() if value is not None})
 
     app.include_router(api)
+    # Same handlers for the web UI, without the key and outside the public schema.
+    ui = APIRouter(prefix="/ui/v1", include_in_schema=False)
+    ui.add_api_route("/analyze", analyze, methods=["POST"], response_model=JobCreated)
+    ui.add_api_route("/jobs/{job_id}", job, methods=["GET"], response_model=JobResult,
+                     response_model_exclude_none=True)
+    ui.add_api_route("/jobs/{job_id}/details", details, methods=["GET"], response_model=JobDetails,
+                     response_model_exclude_unset=True)
+    app.include_router(ui)
 
     @app.api_route("/previews/{filename}", methods=["GET", "HEAD"], include_in_schema=False)
     async def preview(filename: str, request: Request):

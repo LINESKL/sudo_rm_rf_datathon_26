@@ -249,6 +249,9 @@ describe('ResultView', () => {
     await user.tab()
     expect(screen.getByLabelText('Плеер загруженного видео')).toHaveFocus()
     await user.tab()
+    // Preview access refresh no longer needs a key, so it is a real tab stop now.
+    expect(screen.getByRole('button', { name: /Обновить доступ к видео/ })).toHaveFocus()
+    await user.tab()
     expect(screen.getByRole('button', { name: 'Событие 1: Событие 1, 00:08,6' })).toHaveFocus()
     await user.tab()
     expect(screen.getByRole('button', { name: 'Перейти к событию 1, 8.625 с' })).toHaveFocus()

@@ -26,13 +26,14 @@ class APIBoundary:
         self.max_body = max_upload_bytes + 1024 * 1024  # multipart headers, boundaries
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http" or not (
-            scope["path"] == "/api" or scope["path"].startswith("/api/")
-        ):
+        path = scope.get("path", "") if scope["type"] == "http" else ""
+        jury_api = path == "/api" or path.startswith("/api/")
+        if not (jury_api or path.startswith("/ui/")):
             return await self.app(scope, receive, send)
         headers = dict(scope["headers"])
         key = headers.get(b"x-api-key", b"").decode("latin-1")
-        if not matches_key(key, self.api_key):
+        # The web UI needs no key (case FAQ 27); only the jury API is keyed. Both keep the upload cap.
+        if jury_api and not matches_key(key, self.api_key):
             return await JSONResponse(
                 {"detail": "Неверный или отсутствующий X-API-Key"}, status_code=401
             )(scope, receive, send)

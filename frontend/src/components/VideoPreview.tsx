@@ -98,7 +98,7 @@ export const VideoPreview = forwardRef<VideoPreviewHandle, Props>(function Video
   }))
 
   async function refreshPreview() {
-    if (request.current || !apiKey) return
+    if (request.current) return
     const controller = new AbortController()
     request.current = controller
     playIntent.current += 1
@@ -200,7 +200,7 @@ export const VideoPreview = forwardRef<VideoPreviewHandle, Props>(function Video
           type="button"
           variant="outline"
           className="min-h-11 whitespace-normal rounded-xl"
-          disabled={refreshing || !apiKey}
+          disabled={refreshing}
           onClick={() => void refreshPreview()}
         >
           <RotateCcw aria-hidden="true" />

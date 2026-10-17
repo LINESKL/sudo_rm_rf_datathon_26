@@ -4,13 +4,9 @@ import type { DragEvent, FormEvent } from 'react'
 import {
   ArrowRight,
   Check,
-  ChevronDown,
   CircleAlert,
   Clock3,
-  Eye,
-  EyeOff,
   FileVideo,
-  KeyRound,
   LockKeyhole,
   RotateCcw,
   ScanLine,
@@ -22,24 +18,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { FALLBACK_STAGES } from './api/contracts'
 import { ApiError, getServiceHealth, validateVideo } from './api/client'
 import { ResultView } from './components/ResultView'
 import { useAnalysis } from './useAnalysis'
-
-const STORAGE_KEY = 'cashguard-api-key'
-
-function readKey() {
-  try {
-    return localStorage.getItem(STORAGE_KEY) ?? ''
-  } catch {
-    return ''
-  }
-}
 
 function fileSize(bytes: number) {
   return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format(bytes / 1024 / 1024)} МБ`
@@ -78,17 +61,11 @@ export function App() {
     field: 'file' | 'key'
     message: string
   } | null>(null)
-  const [apiKey, setApiKey] = useState(readKey)
-  const [keyOpen, setKeyOpen] = useState(() => !readKey())
-  const [keyVisible, setKeyVisible] = useState(false)
-  const [storageNotice, setStorageNotice] = useState(false)
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const keyInputRef = useRef<HTMLInputElement>(null)
   const chooserRef = useRef<HTMLButtonElement>(null)
   const panelHeadingRef = useRef<HTMLHeadingElement>(null)
   const errorRef = useRef<HTMLDivElement>(null)
-  const focusKeyOnOpen = useRef(false)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const analysis = useAnalysis()
   const health = useQuery({
@@ -127,10 +104,8 @@ export function App() {
           : 'upload'
   const previousPhase = useRef(phase)
   const errorStatus = analysis.error instanceof ApiError ? analysis.error.status : null
-  const serverErrorField =
-    errorStatus === 401 ? 'key' : errorStatus === 400 || errorStatus === 413 ? 'file' : null
+  const serverErrorField = errorStatus === 400 || errorStatus === 413 ? 'file' : null
   const errorField = validation?.field ?? serverErrorField
-  const keyInvalid = errorField === 'key'
   const fileInvalid = errorField === 'file'
 
   useEffect(() => {
@@ -141,24 +116,8 @@ export function App() {
   }, [phase])
 
   useEffect(() => {
-    if (keyOpen && focusKeyOnOpen.current) {
-      keyInputRef.current?.focus()
-      focusKeyOnOpen.current = false
-    }
-  }, [keyOpen])
-
-  useEffect(() => {
     if (validation?.field === 'file') chooserRef.current?.focus()
   }, [validation])
-
-  function showKey() {
-    focusKeyOnOpen.current = true
-    setKeyOpen(true)
-    if (keyInputRef.current) {
-      keyInputRef.current.focus()
-      focusKeyOnOpen.current = false
-    }
-  }
 
   function selectFile(candidate?: File) {
     if (!candidate || analysis.busy) return
@@ -189,23 +148,11 @@ export function App() {
       setValidation({ field: 'file', message: 'Выберите видео для проверки.' })
       return
     }
-    if (!apiKey.trim()) {
-      setValidation({ field: 'key', message: 'Укажите API-ключ для доступа к проверке.' })
-      showKey()
-      return
-    }
     const message = validateVideo(file)
     setValidation(message ? { field: 'file', message } : null)
     if (message) return
-    try {
-      localStorage.setItem(STORAGE_KEY, apiKey.trim())
-      setStorageNotice(false)
-    } catch {
-      setStorageNotice(true)
-    }
-    setKeyOpen(false)
-    if (analysis.statusError && analysis.job) analysis.retryStatus(apiKey.trim())
-    else void analysis.start(file, apiKey.trim())
+    if (analysis.statusError && analysis.job) analysis.retryStatus('')
+    else void analysis.start(file, '')
   }
 
   function newVideo() {
@@ -487,74 +434,6 @@ export function App() {
 
                   {!analysis.busy && (
                     <div className="settings-body">
-                      <Collapsible open={keyOpen} onOpenChange={setKeyOpen}>
-                        <CollapsibleTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="key-toggle h-auto justify-start rounded-xl px-0 py-[18px] has-[>svg]:px-0"
-                            type="button"
-                            aria-expanded={keyOpen}
-                            aria-controls="api-key-panel"
-                          >
-                            <KeyRound size={17} />
-                            <span>Ключ доступа к API</span>
-                            {apiKey.trim() && !keyOpen && (
-                              <span className="key-saved">
-                                <Check size={13} /> Указан
-                              </span>
-                            )}
-                            <ChevronDown size={17} className={keyOpen ? 'rotated' : ''} />
-                          </Button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent id="api-key-panel" className="key-panel">
-                          <Label htmlFor="api-key" className="mb-2 font-semibold">
-                            API-ключ
-                          </Label>
-                          <div className="key-input-wrap">
-                            <Input
-                              ref={keyInputRef}
-                              className="h-12 rounded-xl pr-12"
-                              id="api-key"
-                              name="apiKey"
-                              type={keyVisible ? 'text' : 'password'}
-                              autoComplete="off"
-                              spellCheck={false}
-                              value={apiKey}
-                              onChange={(event) => {
-                                setApiKey(event.target.value)
-                                if (validation?.field === 'key') setValidation(null)
-                              }}
-                              placeholder="Введите ключ доступа"
-                              aria-invalid={keyInvalid || undefined}
-                              aria-describedby={
-                                keyInvalid ? 'key-help form-error-message' : 'key-help'
-                              }
-                            />
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="absolute right-1 top-1 size-10 rounded-xl text-muted-foreground"
-                              type="button"
-                              aria-label={keyVisible ? 'Скрыть ключ' : 'Показать ключ'}
-                              onClick={() => setKeyVisible(!keyVisible)}
-                            >
-                              {keyVisible ? <EyeOff size={18} /> : <Eye size={18} />}
-                            </Button>
-                          </div>
-                          <p id="key-help" className="helper">
-                            Ключ предоставит администратор сервиса. Сохраняется в этом браузере
-                            после отправки.
-                          </p>
-                        </CollapsibleContent>
-                      </Collapsible>
-                      {storageNotice && (
-                        <Alert role="note" className="mb-5 border-0 bg-muted text-muted-foreground">
-                          <AlertDescription className="text-xs">
-                            Браузер не разрешил сохранить ключ. Введите его снова при следующем
-                            открытии.
-                          </AlertDescription>
-                        </Alert>
-                      )}
                       {(validation || analysis.error) && (
                         <Alert
                           ref={errorRef}
@@ -574,16 +453,6 @@ export function App() {
                               <p className="mono" role="timer" aria-live="off">
                                 Прошло с начала отправки: {elapsedTime(analysis.elapsedSeconds)}
                               </p>
-                            )}
-                            {analysis.error && !keyOpen && (
-                              <Button
-                                type="button"
-                                variant="link"
-                                className="min-h-11 whitespace-normal px-2 text-brand underline"
-                                onClick={showKey}
-                              >
-                                Проверить ключ доступа
-                              </Button>
                             )}
                           </AlertDescription>
                         </Alert>

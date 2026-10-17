@@ -127,10 +127,9 @@ describe('F1 processing states', () => {
     fireEvent.change(screen.getByLabelText('Видео для проверки'), {
       target: { files: [new File(['video'], 'camera.mov', { type: 'video/quicktime' })] },
     })
-    fireEvent.change(screen.getByLabelText('API-ключ'), { target: { value: 'test-key' } })
     expect(screen.getByRole('timer')).toHaveTextContent('05:01')
     fireEvent.click(screen.getByRole('button', { name: 'Повторить запрос статуса' }))
-    expect(state.retryStatus).toHaveBeenCalledExactlyOnceWith('test-key')
+    expect(state.retryStatus).toHaveBeenCalledExactlyOnceWith('')
     expect(state.start).not.toHaveBeenCalled()
   })
 })
@@ -196,23 +195,14 @@ describe('F2 service-health freshness', () => {
 })
 
 describe('F5 accessible upload flow', () => {
-  it('opens and focuses a missing key and describes the invalid field', async () => {
+  it('starts a check without asking for an API key', async () => {
     const user = userEvent.setup()
     const state = renderState({ busy: false, job: null, elapsedSeconds: 0 })
-    await user.upload(
-      screen.getByLabelText('Видео для проверки'),
-      new File(['video'], 'camera.mov', { type: 'video/quicktime' }),
-    )
-    await user.click(screen.getByRole('button', { name: 'Ключ доступа к API' }))
+    const file = new File(['video'], 'camera.mov', { type: 'video/quicktime' })
+    await user.upload(screen.getByLabelText('Видео для проверки'), file)
     expect(screen.queryByLabelText('API-ключ')).not.toBeInTheDocument()
-
     await user.click(screen.getByRole('button', { name: 'Начать проверку' }))
-    const key = await screen.findByLabelText('API-ключ')
-    await waitFor(() => expect(key).toHaveFocus())
-    expect(key).toHaveAttribute('aria-invalid', 'true')
-    expect(key).toHaveAccessibleDescription(/Укажите API-ключ для доступа к проверке/)
-    expect(screen.getByLabelText('Видео для проверки')).not.toHaveAttribute('aria-invalid', 'true')
-    expect(state.start).not.toHaveBeenCalled()
+    expect(state.start).toHaveBeenCalledExactlyOnceWith(file, '')
   })
 
   it('returns an invalid file to the visible chooser with its correction message', async () => {
@@ -237,7 +227,6 @@ describe('F5 accessible upload flow', () => {
 
   it('preserves a long file name when changing from selection to upload', async () => {
     const user = userEvent.setup()
-    localStorage.setItem('cashguard-api-key', 'test-key')
     const view = renderState({ busy: false, job: null, elapsedSeconds: 0 })
     const name = `${'кассовая_операция_'.repeat(20)}камера_1.mov`
     const file = new File(['video'], name, { type: 'video/quicktime' })
@@ -245,14 +234,13 @@ describe('F5 accessible upload flow', () => {
     expect(screen.getByText(name, { exact: true })).toBeVisible()
 
     await user.click(screen.getByRole('button', { name: 'Начать проверку' }))
-    expect(view.start).toHaveBeenCalledExactlyOnceWith(file, 'test-key')
+    expect(view.start).toHaveBeenCalledExactlyOnceWith(file, '')
     view.rerenderState({ uploading: true, busy: true })
     expect(screen.getByText(name, { exact: true })).toBeVisible()
   })
 
   it('moves focus between phases and preserves the current control during progress updates', async () => {
     const user = userEvent.setup()
-    localStorage.setItem('cashguard-api-key', 'test-key')
     const view = renderState({ busy: false, job: null, elapsedSeconds: 0 })
     await user.upload(
       screen.getByLabelText('Видео для проверки'),
@@ -312,7 +300,6 @@ describe('F5 accessible upload flow', () => {
 
   it('focuses a status error once and keeps the retry button focused as elapsed time changes', async () => {
     const user = userEvent.setup()
-    localStorage.setItem('cashguard-api-key', 'test-key')
     const view = renderState({ busy: false, job: null, elapsedSeconds: 0 })
     await user.upload(
       screen.getByLabelText('Видео для проверки'),
@@ -327,8 +314,6 @@ describe('F5 accessible upload flow', () => {
     await waitFor(() => expect(alert).toHaveFocus())
     expect(alert).toHaveTextContent(error.message)
     await user.tab()
-    expect(screen.getByRole('button', { name: 'Проверить ключ доступа' })).toHaveFocus()
-    await user.tab()
     const retry = screen.getByRole('button', { name: 'Повторить запрос статуса' })
     expect(retry).toHaveFocus()
     view.rerenderState({ elapsedSeconds: 66 })
@@ -336,11 +321,6 @@ describe('F5 accessible upload flow', () => {
   })
 
   it.each([
-    {
-      status: 401,
-      message: 'API-ключ не принят. Проверьте ключ и попробуйте снова.',
-      field: 'key',
-    },
     {
       status: 400,
       message: 'Сервис не смог принять видео. Проверьте файл и попробуйте снова.',
@@ -360,9 +340,8 @@ describe('F5 accessible upload flow', () => {
         screen.getByLabelText('Видео для проверки'),
         new File(['video'], 'camera.mov', { type: 'video/quicktime' }),
       )
-      await user.type(screen.getByLabelText('API-ключ'), 'test-key')
       view.rerenderState({ error: new ApiError(message, status), busy: false })
-      const input = screen.getByLabelText(field === 'key' ? 'API-ключ' : 'Видео для проверки')
+      const input = screen.getByLabelText('Видео для проверки')
       expect(input).toHaveAttribute('aria-invalid', 'true')
       expect(input).toHaveAccessibleDescription(
         new RegExp(message.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
@@ -376,65 +355,6 @@ describe('F5 accessible upload flow', () => {
       }
     },
   )
-
-  it('replaces the HTTP 401 key association when a new file validation error is shown', async () => {
-    const user = userEvent.setup({ applyAccept: false })
-    const view = renderState({ busy: false, job: null, elapsedSeconds: 0 })
-    await user.upload(
-      screen.getByLabelText('Видео для проверки'),
-      new File(['video'], 'camera.mov', { type: 'video/quicktime' }),
-    )
-    const key = screen.getByLabelText('API-ключ')
-    await user.type(key, 'test-key')
-    view.rerenderState({
-      error: new ApiError('API-ключ не принят. Проверьте ключ и попробуйте снова.', 401),
-    })
-    expect(key).toHaveAttribute('aria-invalid', 'true')
-    expect(key).toHaveAccessibleDescription(/API-ключ не принят/)
-
-    const fileInput = screen.getByLabelText('Видео для проверки')
-    await user.upload(fileInput, new File(['video'], 'camera.avi', { type: 'video/x-msvideo' }))
-    expect(screen.getByRole('alert')).toHaveTextContent('Неподдерживаемый формат.')
-    expect(fileInput).toHaveAttribute('aria-invalid', 'true')
-    expect(fileInput).toHaveAccessibleDescription(/Выберите видео .mov или .mp4/)
-    const chooser = screen.getByRole('button', { name: 'Выбрать другое видео' })
-    expect(chooser).toHaveAttribute('aria-invalid', 'true')
-    expect(chooser).toHaveAccessibleDescription(/Выберите видео .mov или .mp4/)
-    expect(key).not.toHaveAttribute('aria-invalid', 'true')
-    expect(key).not.toHaveAccessibleDescription(/Неподдерживаемый формат|API-ключ не принят/)
-  })
-
-  it('replaces the HTTP 400 file association when a missing key error is shown', async () => {
-    const user = userEvent.setup()
-    const view = renderState({ busy: false, job: null, elapsedSeconds: 0 })
-    await user.upload(
-      screen.getByLabelText('Видео для проверки'),
-      new File(['video'], 'camera.mov', { type: 'video/quicktime' }),
-    )
-    const key = screen.getByLabelText('API-ключ')
-    await user.type(key, 'test-key')
-    view.rerenderState({
-      error: new ApiError('Сервис не смог принять видео. Проверьте файл и попробуйте снова.', 400),
-    })
-    const fileInput = screen.getByLabelText('Видео для проверки')
-    expect(fileInput).toHaveAttribute('aria-invalid', 'true')
-    expect(fileInput).toHaveAccessibleDescription(/Сервис не смог принять видео/)
-
-    await user.clear(key)
-    await user.click(screen.getByRole('button', { name: 'Попробовать снова' }))
-    expect(screen.getByRole('alert')).toHaveTextContent('Укажите API-ключ для доступа к проверке.')
-    expect(key).toHaveFocus()
-    expect(key).toHaveAttribute('aria-invalid', 'true')
-    expect(key).toHaveAccessibleDescription(/Укажите API-ключ для доступа к проверке/)
-    expect(fileInput).not.toHaveAttribute('aria-invalid', 'true')
-    expect(fileInput).not.toHaveAccessibleDescription(
-      /Укажите API-ключ|Сервис не смог принять видео/,
-    )
-    const chooser = screen.getByRole('button', { name: 'Выбрать другое видео' })
-    expect(chooser).not.toHaveAttribute('aria-invalid', 'true')
-    expect(chooser).not.toHaveAccessibleDescription(/Укажите API-ключ|Сервис не смог принять видео/)
-    expect(view.start).not.toHaveBeenCalled()
-  })
 })
 
 describe('Polish: queue and result note', () => {
