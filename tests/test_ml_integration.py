@@ -79,7 +79,7 @@ def test_real_pipeline_through_api(settings, tiny_video, vlm_server, monkeypatch
                 assert details["violations"][0]["type_id"] == "phone_use"
                 assert details["violations"][0]["rule"]["url"].startswith("https://")
             assert client.get(details["preview_url"], headers={"Range": "bytes=0-99"}).status_code == 206
-            assert {"cashier_present", "steps", "violation"} <= {c[2] for c in vlm_server["calls"]}
+            assert {"cashier_present", "steps"} <= {c[2] for c in vlm_server["calls"]}  # open pass is off
         elif mode in ("partial", "partial_phone"):
             # Partial inference is delivered with a flag: a partial verdict beats "failed" for the jury.
             assert details["status"] == "done", details

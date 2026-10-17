@@ -24,18 +24,19 @@ STATE_SCHEMA = {
 }
 STATE_SCHEMA["required"] = list(STATE_SCHEMA["properties"])
 
-STATE_PROMPT = """Overhead CCTV frame of a bank cashier room. The CASHIER is the bank employee who works at the desk with the laptop and the cash counting machine. Clients and cash couriers sit or stand on the opposite (client) side of the desk.
+STATE_PROMPT = """Overhead CCTV frame of a bank cashier room.
+WHO IS THE CASHIER: the cashier is the person sitting in front of the OPEN LAPTOP SCREEN, on the same side of the desk as the screen (she looks at the screen). Clients and cash couriers are on the OPPOSITE side of the desk: they face the cashier and see only the back of the laptop. A person facing the camera across the desk from the laptop screen is a CLIENT, not the cashier. Never treat a client as the cashier.
 Answer strictly about what is visible in THIS frame:
 - cashier_present: the cashier is anywhere in the room.
 - cashier_at_workplace: the cashier is seated or standing right at her desk, within arm's reach of the laptop; false if she has walked away (to the door, the safe, elsewhere) or left the room.
-- cashier_holding_phone: the cashier (not a client) holds a smartphone.
-- cashier_eating_or_drinking: the cashier is eating or holding a cup/drink to the mouth.
+- cashier_holding_phone: the CASHIER clearly holds a smartphone in her hand (a client's phone or wallet does not count).
+- cashier_eating_or_drinking: the CASHIER is visibly bringing food or a cup/bottle to her mouth right now (a cup standing on the desk does not count).
 - laptop_screen: app_visible = an application, document or spreadsheet is open; lock_screen = wallpaper/lock screen; dark_or_off = black screen with lid open; closed = lid closed.
 - safe_door_open / key_in_safe_lock: the small metal safe near the desk.
 - cash_on_desk: banknotes or cash bundles lying on the desk.
 - collection_bag_on_desk: a (green) cash collection bag lying on the desk.
 - personal_items_on_desk: handbag, backpack, coat or jacket on the desk.
-- other_person_on_cashier_side: someone other than the cashier is on the cashier's side of the desk.
+- other_person_on_cashier_side: a SECOND person stands behind or right beside the cashier on HER side of the desk. Clients sitting or standing on the opposite side of the desk do NOT count. If unsure, answer false.
 - people_count: number of people visible.
 Return JSON only."""
 

@@ -62,9 +62,9 @@ RULES = {
     "cash_unattended": _cash_unattended,
     "safe_unsecured": _safe_unsecured,
     "personal_items": _presence("personal_items", "personal_items", 3.0),
-    "eating_drinking": _presence("eating_drinking", "eating", 1.0),
+    "eating_drinking": _presence("eating_drinking", "eating", 2.0),
     "phone_use": _presence("phone_use", "phone", 2.0),
-    "outsider_cashier_zone": _presence("outsider_cashier_zone", "outsider_in_cashier_zone", 1.5),
+    "outsider_cashier_zone": _presence("outsider_cashier_zone", "outsider_in_cashier_zone", 3.0),
 }
 
 

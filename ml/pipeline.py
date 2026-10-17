@@ -23,9 +23,7 @@ from ml.procedures import procedures_hook  # noqa: E402
 
 STAGE_HOOKS.insert(0, procedures_hook)
 
-from ml.open_pass import open_pass  # noqa: E402
-
-STAGE_HOOKS.insert(1, open_pass)
+# ponytail: open pass (ml/open_pass.py) is off — on 32 videos it produced only false positives.
 
 
 def _evidence_times(c: Candidate, duration: float) -> list[float]:
@@ -78,9 +76,6 @@ def analyze(video_path, deadline_s: float = 240.0, on_progress=None, client=None
         if left() < 40:
             degraded = True
             break
-        if hook is open_pass and left() < 90:
-            degraded = True
-            continue
         cands = hook(cands, scene, client, video_path, left())
 
     cands = [c for c in cands if c.confidence >= MIN_CONFIDENCE]

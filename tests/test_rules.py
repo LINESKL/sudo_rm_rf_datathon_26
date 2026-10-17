@@ -32,7 +32,7 @@ def test_client_phone_does_not_trigger_and_cashier_phone_does():
 
 def test_personal_items_eating_outsider():
     t = _types(run_rules(_scene([_st(personal_items_on_desk=True, cashier_eating_or_drinking=True,
-                                     other_person_on_cashier_side=True)] * 10)))
+                                     other_person_on_cashier_side=True, people_count=2)] * 10)))
     assert {"personal_items", "eating_drinking", "outsider_cashier_zone"} <= t
 
 def test_clean_video_no_candidates():
@@ -48,3 +48,17 @@ def test_walking_away_inside_room_counts_as_leave():
 def test_dark_screen_on_leave_is_clean():
     st = [_st()] * 10 + [_st(cashier_at_workplace=False, laptop_screen="dark_or_off")] * 10
     assert not _types(run_rules(_scene(st)))
+
+
+def test_outsider_needs_two_people_for_3s():
+    short = [_st()] * 4 + [_st(other_person_on_cashier_side=True, people_count=2)] * 4 + [_st()] * 4
+    assert "outsider_cashier_zone" not in _types(run_rules(_scene(short)))  # 2 s only
+    alone = [_st(other_person_on_cashier_side=True, people_count=1)] * 10
+    assert "outsider_cashier_zone" not in _types(run_rules(_scene(alone)))  # contradiction: 1 person
+    real = [_st(other_person_on_cashier_side=True, people_count=2)] * 10
+    assert "outsider_cashier_zone" in _types(run_rules(_scene(real)))
+
+
+def test_eating_needs_2s():
+    brief = [_st()] * 4 + [_st(cashier_eating_or_drinking=True)] * 3 + [_st()] * 4
+    assert "eating_drinking" not in _types(run_rules(_scene(brief)))

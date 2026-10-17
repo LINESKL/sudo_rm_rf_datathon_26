@@ -33,3 +33,9 @@ def test_min_confidence_filters(tiny_video, fake_vlm_cls, monkeypatch):
     import ml.pipeline as p
     monkeypatch.setattr(p, "MIN_CONFIDENCE", 0.99)
     assert p.analyze(tiny_video, client=_leaving_vlm(fake_vlm_cls), workers=1).verdict == "no_violation"
+
+
+def test_open_pass_not_in_default_stages():
+    from ml.open_pass import open_pass
+    from ml.pipeline import STAGE_HOOKS
+    assert open_pass not in STAGE_HOOKS

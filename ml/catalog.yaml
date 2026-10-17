@@ -48,7 +48,7 @@ eating_drinking:
   title: Приём пищи или напитков на рабочем месте
   observed: "В {t} с кассир ест или пьёт на рабочем месте."
   why: "Посторонние предметы и приём пищи на рабочем месте кассира создают риск для наличных и документов; порядок определяется внутренними документами банка."
-  verify_question: "Is the cashier eating or drinking (cup or food raised to the mouth) at the desk?"
+  verify_question: "The cashier is the person sitting in front of the open laptop screen. Is THE CASHIER clearly bringing food or a cup/bottle to her mouth in these frames? A cup standing on the desk or a client drinking is NO."
   confidence: 0.7
   norm: {document: *npa231, point: "п. 12 (отсылка к внутренним документам банка)", quote: "Хранение личных вещей … осуществляется вне кассового узла", url: "https://adilet.zan.kz/rus/docs/V1900019680", verified: false}
 
@@ -56,7 +56,7 @@ phone_use:
   title: Мобильный телефон на рабочем месте кассира
   observed: "В {t} с кассир держит в руках мобильный телефон на рабочем месте."
   why: "В кассовый узел допускаются только средства связи без функций фото- и видеофиксации."
-  verify_question: "Is the CASHIER (not a client) holding or using a smartphone?"
+  verify_question: "The cashier is the person sitting in front of the open laptop screen; clients sit opposite. Is THE CASHIER clearly holding or using a smartphone? A client's phone or wallet is NO."
   confidence: 0.7
   norm: {document: *npa231, point: "п. 12 ч. 2", quote: "Допускается внос … средств связи, не имеющих функции фото и видео фиксации", url: "https://adilet.zan.kz/rus/docs/V1900019680", verified: true}
 
@@ -64,7 +64,7 @@ outsider_cashier_zone:
   title: Посторонний в зоне кассира
   observed: "В {t} с посторонний человек находится на стороне кассира, в зоне рабочего места."
   why: "Кассовый узел изолируется от посторонних; рабочее место кассира отделяется."
-  verify_question: "Is a person other than the cashier standing on the cashier's side of the desk (behind or next to the cashier), not on the client side?"
+  verify_question: "The cashier sits in front of the open laptop screen; clients sit or stand on the opposite side of the desk. Is there a SECOND person standing behind or right beside the cashier on her side of the desk? A client on the opposite side, or a person entering through the door and going to the client side, is NO."
   confidence: 0.6
   norm: {document: *npa14, point: "п. 8", quote: "Кассовый узел подлежит изолированию … одним закрывающимся служебным входом", url: "https://adilet.zan.kz/rus/docs/V2000020075", verified: true}
 

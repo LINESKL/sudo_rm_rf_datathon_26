@@ -16,7 +16,7 @@ SIGNALS = {
     "personal_items": lambda s: s["personal_items_on_desk"],
     "phone": lambda s: s["cashier_holding_phone"],
     "eating": lambda s: s["cashier_eating_or_drinking"],
-    "outsider_in_cashier_zone": lambda s: s["other_person_on_cashier_side"],
+    "outsider_in_cashier_zone": lambda s: s["other_person_on_cashier_side"] and s["people_count"] >= 2,
 }
 
 
