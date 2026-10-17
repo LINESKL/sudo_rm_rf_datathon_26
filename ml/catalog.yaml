@@ -47,10 +47,10 @@ personal_items:
 eating_drinking:
   title: Приём пищи или напитков на рабочем месте
   observed: "В {t} с кассир ест или пьёт на рабочем месте."
-  why: "Посторонние предметы и приём пищи на рабочем месте кассира создают риск для наличных и документов; порядок определяется внутренними документами банка."
+  why: "Личные вещи работников, в том числе продукты, хранятся вне кассового узла; вносить в него разрешено только лекарства, медизделия и средства связи без фото- и видеофиксации."
   verify_question: "The cashier is the person sitting in front of the open laptop screen. Is THE CASHIER clearly bringing food or a cup/bottle to her mouth in these frames? A cup standing on the desk or a client drinking is NO."
   confidence: 0.7
-  norm: {document: *npa231, point: "п. 12 (отсылка к внутренним документам банка)", quote: "Хранение личных вещей … осуществляется вне кассового узла", url: "https://adilet.zan.kz/rus/docs/V1900019680", verified: false}
+  norm: {document: *npa231, point: "п. 12 ч. 1–2", quote: "Хранение личных вещей, наличных денег и ценностей работников банка осуществляется вне кассового узла", url: "https://adilet.zan.kz/rus/docs/V1900019680", verified: true}
 
 phone_use:
   title: Мобильный телефон на рабочем месте кассира
@@ -80,11 +80,11 @@ banknote_check_skipped:
 id_check_skipped:
   title: Операция без проверки документа клиента
   observed: "В {t} с кассир принимает наличные от клиента без проверки документа, удостоверяющего личность."
-  why: "Перед проведением операции личность клиента идентифицируется по документу."
+  why: "При приёме наличных кассир проводит визуальную идентификацию клиента по документу, удостоверяющему личность (или по сервису цифровых документов)."
   verify_question: "Before accepting cash, does the cashier take and look at the client's ID card or document?"
   violation_answer: "no"
   confidence: 0.5
-  norm: null
+  norm: {document: *npa231, point: "п. 19 пп. 1), п. 7", quote: "проводит визуальную идентификацию клиента, вносящего наличные деньги, с документом, удостоверяющим его личность", url: "https://adilet.zan.kz/rus/docs/V1900019680", verified: true}
 
 bag_acceptance_violation:
   title: Нарушен порядок приёма сумки у инкассатора
