@@ -4,6 +4,19 @@ import { getJobDetails, uploadVideo } from './api/client'
 
 const WAIT_TIMEOUT_MS = 300_000
 
+// Номер задачи в адресе: перезагрузка не теряет проверку, ссылку можно переслать.
+function jobFromUrl() {
+  const id = new URLSearchParams(window.location.search).get('job')
+  return id && /^[\w-]{1,64}$/.test(id) ? id : null
+}
+
+function setJobInUrl(id: string | null) {
+  const url = new URL(window.location.href)
+  if (id) url.searchParams.set('job', id)
+  else url.searchParams.delete('job')
+  window.history.replaceState(null, '', url)
+}
+
 function elapsedSince(started: number, now: number) {
   return Math.max(0, Math.floor((now - started) / 1000))
 }
@@ -15,8 +28,11 @@ export function useAnalysis() {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadError, setUploadError] = useState<Error | null>(null)
-  const [job, setJob] = useState<{ id: string; key: string; started: number } | null>(null)
-  const [startedAt, setStartedAt] = useState<number | null>(null)
+  const [job, setJob] = useState<{ id: string; key: string; started: number } | null>(() => {
+    const id = jobFromUrl()
+    return id ? { id, key: '', started: Date.now() } : null
+  })
+  const [startedAt, setStartedAt] = useState<number | null>(() => job?.started ?? null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
   useEffect(
@@ -73,7 +89,10 @@ export function useAnalysis() {
     setUploading(true)
     try {
       const response = await uploadVideo(file, key, setUploadProgress, active.signal)
-      if (!active.signal.aborted) setJob({ id: response.job_id, key, started })
+      if (!active.signal.aborted) {
+        setJob({ id: response.job_id, key, started })
+        setJobInUrl(response.job_id)
+      }
     } catch (error) {
       if (!active.signal.aborted) {
         setElapsedSeconds(elapsedSince(started, Date.now()))
@@ -102,6 +121,7 @@ export function useAnalysis() {
     void queryClient.cancelQueries({ queryKey: ['job-details'] })
     queryClient.removeQueries({ queryKey: ['job-details'] })
     setJob(null)
+    setJobInUrl(null)
     setUploading(false)
     setUploadProgress(0)
     setUploadError(null)
