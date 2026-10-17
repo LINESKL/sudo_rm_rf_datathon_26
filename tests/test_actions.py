@@ -41,3 +41,10 @@ def test_hook_asks_windows_and_adds_finds(tiny_video, fake_vlm_cls):
     client = fake_vlm_cls(lambda i, p: {k: k == "door_left_open" for k in FIELDS} | {"what": "door open"})
     out = actions_hook([], S(), client, tiny_video, 100.0)
     assert [c.type_id for c in out] == ["door_left_open"] and client.calls == 3
+
+
+def test_door_uses_the_last_open_streak():
+    # a streak at the very start is usually someone just walking in; the later one is the event
+    on = {"door_left_open": True}
+    ws = [_w(0, **on), _w(2, **on), _w(4, **on), _w(6), _w(8, **on), _w(10, **on), _w(12, **on), _w(14)]
+    assert _types(rules_from_windows(ws)) == [("door_left_open", 9.5)]
