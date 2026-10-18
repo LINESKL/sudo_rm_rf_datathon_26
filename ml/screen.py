@@ -1,6 +1,6 @@
 """Unlocked workstation: on every leave, find the laptop once (grounding) and classify its zoomed screen.
 The per-frame flag took a Windows lock-screen wallpaper for an open app; a zoomed crop does not
-(40 videos: "document" only on Х-11 and Х-28, both violations; every clean twin is lock/black/closed)."""
+(on the open dataset "document" appeared only on violations; clean twins showed lock/black/closed)."""
 from __future__ import annotations
 
 from PIL import Image
@@ -63,7 +63,7 @@ def screen_hook(cands, scene, client, video_path, time_left):
         answers = [client.ask_json([crop(im, boxes["laptop"])], SCREEN_Q, SCREEN_SCHEMA, max_tokens=30) for _, im in frames]
         if all(isinstance(x, dict) and x.get("screen") == "document_or_spreadsheet" for x in answers):
             out.append(Candidate("workstation_unlocked", a, b, max(float(cat["workstation_unlocked"]["confidence"]), 0.75)))
-        # Desk left with cash/bag/items (40 videos: Х-13, Х-15, Х-26 found, no clean twin answered yes)
+        # Desk left with cash/bag/items (on the open dataset no clean twin answered yes)
         desk = [client.ask_json([crop(im, desk_box(boxes["laptop"]), pad=0)], DESK_Q, VERIFY_SCHEMA) for _, im in frames]
         seen = " ".join(str(x.get("what_is_visible", "")) for x in desk if isinstance(x, dict) and x.get("answer") == "yes")
         if seen:

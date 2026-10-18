@@ -17,11 +17,11 @@ def test_load_labels_merges_duplicates(tmp_path, tiny_video):
         (vids / n).write_bytes(tiny_video.read_bytes() if n != "X-1.mov" else b"other")
     wb = openpyxl.Workbook(); ws = wb.active
     ws.append(["наименование файла", "таймстемп", "нарушение / без нарушения"])
-    ws.append(["Х-4", "57 секунда", "нарушение"]); ws.append(["Х-47", "1минута 8 секунда", "нарушение"])
+    ws.append(["Х-4", "12 секунда", "нарушение"]); ws.append(["Х-47", "1минута 5 секунда", "нарушение"])
     ws.append(["X-1", "22 секунда", "нарушение"])
     xlsx = tmp_path / "l.xlsx"; wb.save(xlsx)
     rows = {r["name"]: r for r in load_labels(xlsx, vids)}
-    assert set(rows) == {"Х-4", "Х-1"} and rows["Х-4"]["times"] == [57.0, 68.0]
+    assert set(rows) == {"Х-4", "Х-1"} and rows["Х-4"]["times"] == [12.0, 65.0]
 
 def test_score():
     rows = [

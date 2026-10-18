@@ -14,7 +14,7 @@ Observer — локальный AI-сервис: по записи потоло�
 
 - **Сервис:** https://13y5afllndxi2q-8000.proxy.runpod.net/ (интерфейс без ключа, API жюри `/api/v1` с `X-API-Key`).
 - **Материалы сдачи:** [docs/submission.md](docs/submission.md) — архитектура, нормы, типы нарушений, метрики, ограничения.
-- **Модель:** Qwen3-VL-30B-A3B-Instruct (AWQ, Apache-2.0) в vLLM 0.11, одна видеокарта 24–48 ГБ.
+- **Модель:** Qwen3-VL-30B-A3B-Instruct (AWQ, Apache-2.0) в vLLM 0.11, одна NVIDIA L40 48 ГБ.
 
 **Как работает** (`ml/`): выборка до 160 кадров → покадровое состояние сцены от VLM → интервалы
 и правила → крупный план экрана и стола на уходах кассира → анкета действий по окнам из 4 кадров
@@ -63,7 +63,7 @@ $env:API_KEY = .venv/Scripts/python.exe -c 'import secrets; print(secrets.token_
 `python -m pip --python .venv/Scripts/python.exe install -r requirements.txt`.
 Для нестандартного расположения FFmpeg задайте `FFMPEG_BIN` и `FFPROBE_BIN` полными путями.
 Список настроек — [.env.example](.env.example); файл `.env` автоматически не читается.
-Запускайте **один** процесс uvicorn: воркеры анализа живут внутри него (`WORKERS`, на стенде 6).
+Запускайте **один** процесс uvicorn: воркеры анализа живут внутри него (`WORKERS`: по умолчанию 3, на стенде 6).
 
 - UI: [localhost:8000](http://localhost:8000). Сборка создаёт `frontend/dist`;
   если она отсутствует, корень показывает страницу состояния API.
@@ -78,7 +78,7 @@ Frontend принадлежит snownumb: React, Vite, TypeScript, Tailwind и �
 Результат: вердикт, плеер с лентой событий, карточки нарушений с таймкодом, 1–3 JPEG,
 увеличением и нормативом, решение проверяющего («подтверждаю / не нарушение / не уверен»)
 и печать отчёта. Неполный анализ обозначается явно. Адаптив 375/1440 px, управление с клавиатуры.
-Все 247 frontend-тестов, lint/build/format проходят. Скриншоты — в [отчёте приёмки](docs/frontend/acceptance.md).
+Все 247 frontend-тестов, lint/build/format проходят. Скриншоты — [docs/frontend/screenshots](docs/frontend/screenshots/).
 
 ```bash
 npm --prefix frontend run dev
@@ -96,8 +96,7 @@ npm --prefix frontend run format:check
 обычный `build` перед передачей локальному сервису. Docker собирает production UI самостоятельно.
 
 Бриф: [docs/frontend/BRIEF.md](docs/frontend/BRIEF.md).
-Результаты и границы проверки: [приёмка frontend](docs/frontend/acceptance.md),
-согласованный формат полей и cookie — [контракт](docs/frontend/backend-integration.md).
+Согласованный формат полей и cookie — [контракт](docs/frontend/backend-integration.md).
 
 ## Проверка видео
 
@@ -111,14 +110,14 @@ curl http://localhost:8000/api/v1/jobs/JOB_ID/details -H "X-API-Key: $API_KEY"
 
 В PowerShell используйте `curl.exe` и `$env:API_KEY`.
 Приём возвращает `200 {"job_id":"..."}`. Разрешены MOV/MP4 до 200 МиБ;
-битое видео, пустой файл и неподдерживаемое расширение возвращают `400`.
+пустой файл, битое видео и файл, который не является видео, возвращают `400`.
 Отсутствующий/неверный ключ — `401`, неизвестная задача — `404`.
 
 `/jobs/{id}` во время обработки или ошибки содержит только `job_id`, `status`.
 В `done` добавляются `verdict` и `violations`, каждое нарушение содержит только
 `type`, `timecode_sec`, `description`, `evidence_frames`.
 Причина ошибки доступна в `/details.error`, поля UI — только в `/details`.
-Эталон UI: [моки](docs/frontend/), [спецификация](docs/superpowers/specs/2026-10-17-cashguard-design.md).
+Эталон UI: [моки](docs/frontend/), [материалы сдачи](docs/submission.md).
 
 Превью `/previews/<32-символьный-id>.mp4` защищены. Успешный `/details`
 выдаёт HttpOnly cookie на одно видео на 15 минут; обычный `<video src>` на том же
@@ -145,19 +144,18 @@ Docker собирает production UI из исходников отдельны
 
 Офлайн-проверки образа со стороны backend используют заглушку и контейнер с
 `--network none`. Скрипт `deploy/offline-browser.py` проверяет UI/ресурсы и внешние
-HTTP-запросы. Границы локальной и реальной приёмки — [протокол frontend](docs/frontend/acceptance.md).
+HTTP-запросы.
 
 CPU-образ проверен 17.10.2026: запуск с `--network none`, обработка исходного MOV
 28,72 МБ, шесть одновременных загрузок и сохранение результатов после рестарта.
 Повторяемая проверка — `deploy/offline-check.sh`; параметры Linux/PowerShell и
-результаты описаны в [инструкции](deploy/README.md) и [протоколе](docs/backend-acceptance.md).
+параметры описаны в [инструкции](deploy/README.md).
 Это проверка заглушки. Реальный пайплайн принят на стенде RunPod (`deploy/pod/start_all.sh`);
 GPU-Docker-образ с реальной моделью отдельно не собирался.
 
 ## Подключение ML
 
-Код из ветки `ml` подключён; подробности и границы проверки —
-[в протоколе интеграции](docs/ml-integration.md). Для реального анализа установите
+Код `ml/` подключён, подробности — [ml/README.md](ml/README.md). Для реального анализа установите
 `requirements-ml.txt` с ограничениями `-c requirements.txt`, запустите собственный
 VLM-сервер и выставьте `ANALYZER=ml:analyze`. Значение по умолчанию —
 `ANALYZER=ml.stub:analyze`. Функция синхронная и вызывается
@@ -193,9 +191,9 @@ details = result.to_details(job_id, preview_url)
 в [материалах сдачи](docs/submission.md). Если больше 10 % запросов к VLM не удалось,
 анализ помечается `degraded: true`, UI показывает предупреждение. Если VLM не ответил ни на один
 кадр, задача становится `failed`. Модель — `QuantTrio/Qwen3-VL-30B-A3B-Instruct-AWQ` (Apache-2.0),
-работает на стенде NVIDIA L40 48 ГБ (раньше на RTX 4090 24 ГБ); веса в репозиторий не включены.
-ML использует `VLM_BASE_URL=http://localhost:8001/v1` и `VLM_MODEL=<модель>`.
-Для 4B нужно одновременно сменить `VLM_MODEL` и локальные веса в `MODEL_PATH`.
+работает на стенде NVIDIA L40 48 ГБ; веса в репозиторий не включены.
+ML использует `VLM_BASE_URL` (Docker — `http://localhost:8001/v1`, стенд RunPod — `http://127.0.0.1:8011/v1`)
+и `VLM_MODEL`. Настройки стенда — [deploy/pod/api.env.example](deploy/pod/api.env.example).
 
 ## Проверки
 

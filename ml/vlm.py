@@ -17,7 +17,7 @@ from ml.video import to_jpeg_b64
 class VLMClient:
     def __init__(self, base_url: str | None = None, model: str | None = None, timeout: float = 60):
         self.base_url = (base_url or os.getenv("VLM_BASE_URL", "http://localhost:8001/v1")).rstrip("/")
-        self.model = model or os.getenv("VLM_MODEL", "Qwen/Qwen3-VL-8B-Instruct")
+        self.model = model or os.getenv("VLM_MODEL", "QuantTrio/Qwen3-VL-30B-A3B-Instruct-AWQ")
         self.timeout = timeout
         self.failures = 0
         self.calls = 0

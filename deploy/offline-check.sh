@@ -32,7 +32,7 @@ docker image inspect "$IMAGE" --format '{{.Id}}' > "$output/image-id.txt"
 docker run --pull never -d --name "$name" --network none "${gpu_args[@]}" \
     -e API_KEY -e VLLM_ENABLED="${VLLM_ENABLED:-0}" \
     -e ANALYZER="${ANALYZER:-ml.stub:analyze}" \
-    -e VLM_MODEL="${VLM_MODEL:-Qwen/Qwen3-VL-8B-Instruct}" \
+    -e VLM_MODEL="${VLM_MODEL:-QuantTrio/Qwen3-VL-30B-A3B-Instruct-AWQ}" \
     -e MODEL_PATH="${MODEL_PATH:-/workspace/models/qwen}" \
     -e HF_HUB_OFFLINE=1 -e TRANSFORMERS_OFFLINE=1 \
     -v "$WORKSPACE_DIR:/workspace" -v "$VIDEO_DIR:/videos:ro" "$IMAGE" >/dev/null

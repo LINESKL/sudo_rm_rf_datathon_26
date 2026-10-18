@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Bring the whole service up on the RunPod pod: vLLM (offline) + Observer API.
 # Idempotent: rebuilds what a pod stop wiped from the container disk, skips what is running.
-# usage: bash /workspace/start_all.sh        (also called from /pre_start.sh on pod start)
+# usage: cp deploy/pod/start_all.sh /workspace/ && bash /workspace/start_all.sh
+# Needs the repo in /workspace/app, settings in /workspace/api.env (see api.env.example)
+# and model weights in the HF cache /workspace/hf. Add the call to /pre_start.sh to start on pod boot.
 set -u
 export HF_HOME=/workspace/hf HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 APP=/workspace/app
 MODEL=${VLM_MODEL:-QuantTrio/Qwen3-VL-30B-A3B-Instruct-AWQ}
+REV=${MODEL_REV:-a5ea10732e2c9330957864ece3ec66d806a4b00d}
 
 command -v ffmpeg >/dev/null && command -v tmux >/dev/null || {
   apt-get -qq update && apt-get -qq install -y ffmpeg tmux rsync >/dev/null; }
@@ -17,7 +20,7 @@ command -v uv >/dev/null || pip install -q --break-system-packages uv
 
 if ! curl -sf 127.0.0.1:8011/v1/models >/dev/null; then
   tmux kill-session -t vllm 2>/dev/null
-  tmux new -d -s vllm "/root/vv/bin/vllm serve $MODEL --host 127.0.0.1 --port 8011 --max-model-len ${MAX_LEN:-32768} --max-num-seqs ${MAX_SEQS:-48} --limit-mm-per-prompt '{\"image\": 8, \"video\": 1}' --gpu-memory-utilization 0.90 --mm-processor-kwargs '{\"max_pixels\": 401408}' 2>&1 | tee /workspace/vllm.log"
+  tmux new -d -s vllm "/root/vv/bin/vllm serve $MODEL --revision $REV --host 127.0.0.1 --port 8011 --max-model-len ${MAX_LEN:-32768} --max-num-seqs ${MAX_SEQS:-48} --limit-mm-per-prompt '{\"image\": 8, \"video\": 1}' --gpu-memory-utilization 0.90 --mm-processor-kwargs '{\"max_pixels\": 401408}' 2>&1 | tee /workspace/vllm.log"
   for i in $(seq 1 90); do
     curl -sf 127.0.0.1:8011/v1/models >/dev/null && break
     tmux has -t vllm 2>/dev/null || { echo "vLLM DIED"; tail -5 /workspace/vllm.log; exit 1; }

@@ -3,10 +3,9 @@
 ## Образы и версии
 
 `Dockerfile` имеет цели `stub` (CPU) и `gpu` (по умолчанию).
-GPU-основа: `vllm/vllm-openai:v0.31.0-cu129`, зафиксированная по
-[официальному релизу vLLM](https://github.com/vllm-project/vllm/releases/tag/v0.31.0).
-Это исходная конфигурация для проверки на GPU, а не результат замера совместимости.
-Версию можно переопределить `--build-arg VLLM_IMAGE=...` после ML-спайка.
+GPU-основа: `vllm/vllm-openai:v0.11.0` — та же версия vLLM, что на стенде.
+GPU-образ с реальной моделью целиком не собирался: боевой стенд запущен скриптом `deploy/pod/start_all.sh` (ниже).
+Версию можно переопределить `--build-arg VLLM_IMAGE=...`.
 Драйвер хоста должен поддерживать CUDA выбранного образа.
 
 Зависимости API устанавливаются в отдельное окружение `/opt/backend`,
@@ -28,7 +27,7 @@ docker run -d --name observer --restart unless-stopped --gpus all \
 на `node:24.19.0-bookworm-slim`: `npm ci` по lock-файлу и production `npm run build`.
 Результат копируется в обе цели (`stub` и `gpu`), Node в runtime не требуется.
 Локальные `frontend/dist`, `node_modules` и кеш TypeScript исключены из контекста.
-Перед финальной GPU-приёмкой подготовьте веса (см. `docs/ml-integration.md`).
+Перед запуском GPU-образа подготовьте веса (раздел ниже).
 Для проверки инфраструктуры используйте `ANALYZER=ml.stub:analyze`.
 `start.sh` требует `API_KEY`, запускает vLLM на `127.0.0.1:8001`, ждёт `/health`,
 затем запускает один uvicorn на 8000. Порт 8001 не публикуется.
@@ -42,20 +41,18 @@ docker run -d --name observer --restart unless-stopped --gpus all \
 `MODEL_PATH`, `HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1`, телеметрия отключена.
 На старте скачивания нет; отсутствующий `config.json` приводит к явной ошибке.
 
-Модель по умолчанию — `QuantTrio/Qwen3-VL-30B-A3B-Instruct-AWQ` (Apache-2.0; раньше 8B),
-запасная — `Qwen/Qwen3-VL-4B-Instruct`; окончательный выбор после Kaggle-спайка.
-Цель — 24 ГБ VRAM. `start.sh` выставляет `VLM_MODEL`, публикует локальные веса
-под этим же именем через `--served-model-name`, задаёт `--max-model-len 8192`
-и `--limit-mm-per-prompt '{"image": 6}'`. ML получает
-`VLM_BASE_URL=http://localhost:8001/v1`. При переключении на 4B смените и имя,
-и каталог весов; автоматического скачивания или переключения модели нет.
-Параметры `GPU_MEMORY_UTILIZATION=0.80` и `MAX_NUM_SEQS=8` требуют замера на выбранном GPU.
+Модель — `QuantTrio/Qwen3-VL-30B-A3B-Instruct-AWQ` (Apache-2.0), ревизия
+`a5ea10732e2c9330957864ece3ec66d806a4b00d`, GPU 48 ГБ (стенд — NVIDIA L40).
+`start.sh` выставляет `VLM_MODEL`, публикует локальные веса под этим же именем через
+`--served-model-name` и задаёт флаги стенда: `--max-model-len 32768`, `--max-num-seqs 48`,
+`--limit-mm-per-prompt '{"image": 8, "video": 1}'`, `--gpu-memory-utilization 0.90`.
+ML получает `VLM_BASE_URL=http://localhost:8001/v1`. Автоматического скачивания или переключения модели нет.
 
 Команда запуска для среды с уже подготовленным HF-кешем:
 
 ```bash
 vllm serve QuantTrio/Qwen3-VL-30B-A3B-Instruct-AWQ --host 127.0.0.1 --port 8001 \
-  --max-model-len 8192 --limit-mm-per-prompt '{"image": 6}'
+  --max-model-len 32768 --max-num-seqs 48 --limit-mm-per-prompt '{"image": 8, "video": 1}'
 ```
 
 В контейнере вместо HF-id запускается `MODEL_PATH`, чтобы сохранить офлайн-режим.
@@ -116,7 +113,7 @@ MSYS_NO_PATHCONV предотвращает подмену путей `/workspac
 4.43.1 / Engine 28.3.0, Linux amd64: Python 3.12.15, FFmpeg 7.1.5, `pip check` без
 конфликтов. Сетевая изоляция, HTTP-приёмка, шесть загрузок и рестарт прошли.
 Локальный image ID: `sha256:06cd2c1bd2764078eeb904c9fa999657a913b0d50dada5226edea8c1f0d3199f`.
-Образ не публиковался в registry. Подробные результаты — [протокол](../docs/backend-acceptance.md).
+Образ не публиковался в registry.
 
 Для переноса готового образа на хост без интернета можно выполнить `docker save`
 на машине сборки и `docker load` на целевой машине. Сборка зависимостей требует
@@ -135,7 +132,7 @@ python deploy/offline-browser.py --container observer-offline-ui --port 8087
 ```
 
 Команды работают и из PowerShell (команду docker run записать одной строкой).
-Откройте `http://127.0.0.1:8087`, введите тестовый API-ключ, загрузите MOV,
+Откройте `http://127.0.0.1:8087` (ключ в UI не нужен), загрузите MOV,
 проверьте карточки/JPEG, play/pause, перемотку и обновление доступа к видео.
 Мост требует Docker CLI на хосте, проверяет `NetworkMode=none` и передаёт HTTP
 через `docker exec` на loopback контейнера. Файлы и ответы не подменяются.
@@ -148,36 +145,21 @@ origin, JPEG разрешены также через data URL. Кеширова
 `docker rm -f observer-offline-ui`. Данные остаются в одноимённом volume.
 Отдельно проверяйте публичный HTTPS и Safari: локальный мост их не подтверждает.
 
-## RunPod и восстановление
+## RunPod (боевой стенд)
 
-Под пока не арендовать. До появления пода работа ведётся со своей заглушкой.
-Целевой вариант по указанию команды — RunPod Community RTX 3090 / 4090 с 24 ГБ VRAM,
-ориентир бюджета $0,30/ч (не подтверждённая котировка), оплата через капитана.
-Цель доступности заглушки снаружи — к 18.10.2026 00:00 (Asia/Qyzylorda).
-Инструкция ниже предназначена для согласованного запуска; публичный под ещё не развёрнут.
+Стенд: RunPod, 1× NVIDIA L40 48 ГБ, persistent volume в `/workspace`. Docker-образ там не используется:
+`deploy/pod/start_all.sh` ставит vLLM 0.11.0 и зависимости API в отдельные venv и запускает оба процесса в tmux.
 
-1. Заранее загрузить образ в доступный поду registry, веса и данные — на persistent volume.
-2. После согласования оплаты создать Community Pod с RTX 3090 или RTX 4090 (24 ГБ), подключить persistent storage в `/workspace`,
-   выбрать подготовленный образ. В команде контейнера использовать `/app/deploy/start.sh`,
-   если шаблон RunPod переопределяет ENTRYPOINT.
-3. Для первой внешней проверки заглушки использовать цель `stub`, `VLLM_ENABLED=0`,
-   `ANALYZER=ml.stub:analyze`. Для реального ML — цель `gpu`, `VLLM_ENABLED=1`,
-   `ANALYZER=ml:analyze`, `MODEL_PATH`, `VLM_MODEL`. В обоих случаях установить `API_KEY`.
-   HTTP-порт: **8000**; 8001 наружу не открывать.
-4. В Connect взять HTTPS-ссылку на 8000. Обычно она имеет вид
-   `https://<pod-id>-8000.proxy.runpod.net`; фактический адрес берётся из панели.
-   Задать `MEDIA_COOKIE_SECURE=1`: доступ к превью выдаётся cookie из `/details`.
-   UI и API должны быть на одном origin; схема для разработки описана в
-   [интеграционном контракте](../docs/frontend/backend-integration.md).
-5. Проверить `/health`, затем запустить `deploy/loadtest.py --url <URL>` с внешней машины.
-   После подключения ML повторить с `--require-real` и шестью разными роликами.
-6. Перезапустить под и проверить сохранённый `done` и восстановление `processing`.
-
-Для замены хоста повторить шаги 2–5 с тем же образом, volume и окружением.
-На поде не требуется сборка или установка пакетов: entrypoint выполняет запуск сам.
-Цель ≤15 минут зависит от размера образа, наличия GPU и загрузки весов; до замера
-это не подтверждённое время восстановления. Для публичного URL после смены pod ID
-нужно обновить данные сдачи.
+1. Скопировать репозиторий в `/workspace/app`, собрать фронт (`npm --prefix frontend ci && npm --prefix frontend run build`).
+2. Загрузить веса `QuantTrio/Qwen3-VL-30B-A3B-Instruct-AWQ` (ревизия `a5ea10732e2c9330957864ece3ec66d806a4b00d`)
+   в HF-кэш `/workspace/hf` на машине с сетью.
+3. Создать `/workspace/api.env` по образцу [pod/api.env.example](pod/api.env.example) и задать свой `API_KEY`.
+4. `cp deploy/pod/start_all.sh /workspace/ && bash /workspace/start_all.sh`. Скрипт идемпотентен:
+   после остановки пода он восстанавливает окружение и пропускает то, что уже запущено.
+   Чтобы сервис поднимался при старте пода, добавьте этот вызов в `/pre_start.sh`.
+5. Наружу открыть только HTTP-порт **8000** (`https://<pod-id>-8000.proxy.runpod.net`); vLLM слушает `127.0.0.1:8011`.
+6. Проверить `/health`, затем `python -m deploy.acceptance --url <URL> --require-real sample.mov`
+   и `deploy/loadtest.py --url <URL>` с внешней машины.
 
 Протокол async POST + короткий polling избегает долгого ответа анализатора через
 прокси. При этом лимит/скорость самой загрузки 200 МиБ нужно проверить на выбранном

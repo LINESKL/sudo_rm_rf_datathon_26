@@ -29,9 +29,10 @@ if [[ "${VLLM_ENABLED:-0}" == '1' ]]; then
     export VLM_BASE_URL=http://localhost:8001/v1
     vllm serve "$MODEL_PATH" --host 127.0.0.1 --port 8001 \
         --served-model-name "$VLM_MODEL" \
-        --gpu-memory-utilization "${GPU_MEMORY_UTILIZATION:-0.80}" \
-        --max-model-len "${MAX_MODEL_LEN:-8192}" --limit-mm-per-prompt '{"image": 6}' \
-        --max-num-seqs "${MAX_NUM_SEQS:-8}" &
+        --gpu-memory-utilization "${GPU_MEMORY_UTILIZATION:-0.90}" \
+        --max-model-len "${MAX_MODEL_LEN:-32768}" --limit-mm-per-prompt '{"image": 8, "video": 1}' \
+        --mm-processor-kwargs '{"max_pixels": 401408}' \
+        --max-num-seqs "${MAX_NUM_SEQS:-48}" &
     vllm_pid=$!
     ready=0
     for ((attempt=0; attempt<${VLLM_STARTUP_TIMEOUT_S:-600}; attempt+=2)); do

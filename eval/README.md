@@ -2,11 +2,10 @@
 
 ```bash
 # 1) один раз прогнать с моделью и сохранить ответы VLM в кэш (на поде, GPU):
-/workspace/run_eval.sh dev1          # или вручную:
-python -m eval.run_eval --videos V --labels L --out runs/dev1 --set dev --jobs 3 --cache /workspace/vlmcache
+python -m eval.run_eval --videos DIR_WITH_MOV --labels open_labels.xlsx --out runs/dev1 --set dev --jobs 3 --cache /workspace/vlmcache
 
 # 2) правки правил/порогов/длительностей — перепроверка за секунды, без GPU:
-python -m eval.run_eval --videos V --labels L --out runs/dev1b --set dev --cache /workspace/vlmcache --offline
+python -m eval.run_eval --videos DIR_WITH_MOV --labels open_labels.xlsx --out runs/dev1b --set dev --cache /workspace/vlmcache --offline
 ```
 
 - `--set dev` — 12 роликов из `eval/sets/dev.txt` (пары «нарушение / чистый двойник»). Все 40 — без `--set`.

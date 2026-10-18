@@ -44,7 +44,7 @@ def ask_windows(client, video_path, duration: float, workers: int = 8) -> list[d
 
 def _last_streak(windows, key, n):
     """Start of the last run of >= n flagged windows. An early run is usually someone just walking in;
-    on 40 videos the last run sits closer to the labelled moment (Х-4, Х-18, Х-30)."""
+    on the open dataset the last run sits closer to the labelled moment."""
     found, run = None, 0
     for i, w in enumerate(windows):
         run = run + 1 if w[key] else 0
