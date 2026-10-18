@@ -228,4 +228,3 @@ python deploy/loadtest.py --url https://YOUR_HOST --require-real a.mov b.mov c.m
 280 секунд на обработку не гарантируют 300 секунд с ожиданием в очереди:
 производительность реального пайплайна нужно замерить на целевом GPU.
 
-Материалы сдачи и незаполненные внешние данные: [docs/submission.md](docs/submission.md).
